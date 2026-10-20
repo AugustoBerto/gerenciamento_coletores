@@ -10,7 +10,7 @@
       </div>
 
       <!-- Alerta de Erro -->
-      <div v-if="authStore.error" class="mb-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg">
+      <div v-if="authStore.error" class="mb-4 bg-red-50 border-l-4 border-red-500 p-4 rounded-r-lg animate-bounce-once">
         <p class="text-xs text-red-700 font-medium">{{ authStore.error }}</p>
       </div>
 

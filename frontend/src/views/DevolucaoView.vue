@@ -15,7 +15,7 @@
       <!-- Alertas -->
       <div
         v-if="mensagemErro"
-        class="mt-4 p-4 rounded-xl bg-red-50 border-2 border-red-500 text-red-800 text-xs sm:text-sm font-bold flex items-center justify-between shadow-sm animate-bounce"
+        class="mt-4 p-4 rounded-xl bg-red-50 border-2 border-red-500 text-red-800 text-xs sm:text-sm font-bold flex items-center justify-between shadow-sm animate-bounce-once"
       >
         <div class="flex items-center gap-2">
           <span class="text-lg leading-none">&times;</span>
@@ -28,7 +28,7 @@
 
       <div
         v-if="mensagemSucesso"
-        class="mt-4 p-4 rounded-xl bg-emerald-50 border-2 border-emerald-500 text-emerald-800 text-xs sm:text-sm font-bold flex items-center justify-between shadow-sm"
+        class="mt-4 p-4 rounded-xl bg-emerald-50 border-2 border-emerald-500 text-emerald-800 text-xs sm:text-sm font-bold flex items-center justify-between shadow-sm animate-bounce-once"
       >
         <div class="flex items-center gap-2">
           <span class="text-lg leading-none">&check;</span>

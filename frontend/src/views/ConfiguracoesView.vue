@@ -42,7 +42,7 @@
     <!-- Alertas Globais -->
     <div
       v-if="mensagemAlerta"
-      class="p-4 rounded-xl border-2 text-xs sm:text-sm font-bold flex items-center justify-between shadow-sm"
+      class="p-4 rounded-xl border-2 text-xs sm:text-sm font-bold flex items-center justify-between shadow-sm animate-bounce-once"
       :class="tipoAlerta === 'sucesso' ? 'bg-emerald-50 border-emerald-500 text-emerald-800' : 'bg-red-50 border-red-500 text-red-800'"
     >
       <div class="flex items-center gap-2">
