@@ -1,0 +1,222 @@
+import { AppDataSource } from '../../config/database';
+import { Operador } from '../../database/entities/Operador';
+import { AppError } from '../../shared/errors/AppError';
+
+export interface NovoUsuarioDTO {
+  usuario: string;
+  matricula: number;
+  papel?: 'ADMIN' | 'TI' | 'OPERADOR';
+  nome?: string;
+  cargo?: string;
+}
+
+export interface AtualizarUsuarioDTO {
+  papel?: 'ADMIN' | 'TI' | 'OPERADOR';
+  ativo?: boolean;
+}
+
+export class ConfiguracoesService {
+  public static async listarUsuarios(): Promise<Operador[]> {
+    const operadorRepo = AppDataSource.getRepository(Operador);
+    const usuarios = await operadorRepo.find({
+      order: { criadoEm: 'DESC' },
+    });
+    return usuarios.map((u) => {
+      u.senhaHash = null;
+      return u;
+    });
+  }
+
+  public static async consultarUsuarioCorporativo(identificadorRaw: string): Promise<any> {
+    const termo = String(identificadorRaw || '').trim();
+    if (!termo) {
+      throw new AppError('Informe o usuário corporativo ou a matrícula para pesquisa.', 400, 'PARAMETRO_OBRIGATORIO');
+    }
+
+    const isNum = /^\d+$/.test(termo);
+    const matriculaNum = isNum ? Number(termo) : null;
+
+    // 1. Pesquisa prioritária em autenticacao.usuarios
+    const queryAuth = `
+      SELECT 
+        u.matricula,
+        u.usuario,
+        u.nome,
+        COALESCE(u.funcao, 'Operador Almoxarifado') AS cargo,
+        COALESCE(u.setor, 'Almoxarifado') AS setor
+      FROM autenticacao.usuarios u
+      WHERE ($1::bigint IS NOT NULL AND u.matricula = $1)
+         OR ($2::text IS NOT NULL AND LOWER(u.usuario) = LOWER($2))
+      LIMIT 1;
+    `;
+
+    const resAuth = await AppDataSource.query(queryAuth, [
+      matriculaNum,
+      isNum ? null : termo,
+    ]);
+
+    if (resAuth && resAuth.length > 0) {
+      const u = resAuth[0];
+      return {
+        matricula: Number(u.matricula),
+        usuario: String(u.usuario).toLowerCase(),
+        nome: u.nome,
+        cargo: u.cargo,
+        setor: u.setor,
+        origem: 'autenticacao',
+      };
+    }
+
+    // 2. Se não encontrou em autenticacao, pesquisa em colaborador.colaboradores
+    const queryColab = `
+      SELECT 
+        c.matricula,
+        c.nome,
+        COALESCE(l.nome_setor, 'Setor Operacional') AS setor,
+        COALESCE(l.funcao, 'Operador') AS cargo
+      FROM colaborador.colaboradores c
+      LEFT JOIN colaborador.lista_funcionario l ON l.matricula = c.matricula
+      WHERE ($1::bigint IS NOT NULL AND (c.matricula = $1 OR c.codbarras = $1::bigint))
+      LIMIT 1;
+    `;
+
+    if (matriculaNum) {
+      const resColab = await AppDataSource.query(queryColab, [matriculaNum]);
+      if (resColab && resColab.length > 0) {
+        const c = resColab[0];
+        const nomePartes = String(c.nome).trim().split(' ');
+        const usuarioSugerido = `${nomePartes[0]}.${nomePartes[nomePartes.length - 1]}`.toLowerCase();
+        return {
+          matricula: Number(c.matricula),
+          usuario: usuarioSugerido,
+          nome: c.nome,
+          cargo: c.cargo,
+          setor: c.setor,
+          origem: 'colaborador',
+        };
+      }
+    }
+
+    throw new AppError(
+      'Usuário corporativo ou matrícula não localizada na base da fábrica.',
+      404,
+      'USUARIO_NAO_ENCONTRADO'
+    );
+  }
+
+  public static async cadastrarUsuario(
+    dto: NovoUsuarioDTO,
+    solicitante?: { id: string; papel: 'ADMIN' | 'TI' | 'OPERADOR' }
+  ): Promise<Operador> {
+    const usuarioFormatado = String(dto.usuario || '').trim().toLowerCase();
+    const matricula = Number(dto.matricula);
+
+    if (!usuarioFormatado || !matricula) {
+      throw new AppError('Usuário e matrícula são obrigatórios.', 400, 'CAMPOS_OBRIGATORIOS');
+    }
+
+    // Regra: Perfil de TI só pode cadastrar operadores comuns
+    let papelAtribuido: 'ADMIN' | 'TI' | 'OPERADOR' = dto.papel || 'OPERADOR';
+    if (solicitante?.papel === 'TI') {
+      if (dto.papel && dto.papel !== 'OPERADOR') {
+        throw new AppError('Perfil de TI só tem permissão para cadastrar operadores comuns.', 403, 'PERMISSAO_NEGADA_TI');
+      }
+      papelAtribuido = 'OPERADOR';
+    }
+
+    const operadorRepo = AppDataSource.getRepository(Operador);
+
+    const existente = await operadorRepo.findOne({
+      where: [{ matricula }, { usuario: usuarioFormatado }],
+    });
+
+    if (existente) {
+      if (existente.ativo) {
+        throw new AppError('Este operador já está cadastrado e ativo no sistema.', 409, 'OPERADOR_DUPLICADO');
+      }
+      // Reativa operador inativo
+      existente.ativo = true;
+      existente.papel = papelAtribuido;
+      if (dto.nome) existente.nome = dto.nome;
+      if (dto.cargo) existente.cargo = dto.cargo;
+      return operadorRepo.save(existente);
+    }
+
+    const novoOperador = operadorRepo.create({
+      matricula,
+      usuario: usuarioFormatado,
+      nome: dto.nome || usuarioFormatado,
+      cargo: dto.cargo || 'Operador Almoxarifado',
+      papel: papelAtribuido,
+      ativo: true,
+    });
+
+    return operadorRepo.save(novoOperador);
+  }
+
+  public static async atualizarUsuario(
+    id: string,
+    dto: AtualizarUsuarioDTO,
+    solicitante: { id: string; papel: 'ADMIN' | 'TI' | 'OPERADOR' }
+  ): Promise<Operador> {
+    const operadorRepo = AppDataSource.getRepository(Operador);
+    const operador = await operadorRepo.findOne({ where: { id } });
+
+    if (!operador) {
+      throw new AppError('Operador não encontrado.', 404, 'OPERADOR_NAO_ENCONTRADO');
+    }
+
+    // Regra: Imutabilidade do perfil técnico fixo suporte.ti
+    if (operador.usuario === 'suporte.ti') {
+      if (dto.papel && dto.papel !== 'TI') {
+        throw new AppError('O papel do perfil padrão suporte.ti é fixo como TI e não pode ser alterado.', 400, 'PERFIL_TI_FIXO');
+      }
+      if (dto.ativo === false) {
+        throw new AppError('O perfil padrão suporte.ti não pode ser inativado.', 400, 'PERFIL_TI_IMUTAVEL');
+      }
+    }
+
+    // Regra: Restrições específicas do papel TI
+    if (solicitante.papel === 'TI') {
+      if (operador.papel === 'ADMIN' || (operador.papel === 'TI' && operador.id !== solicitante.id)) {
+        throw new AppError('Perfil de TI não tem permissão para alterar administradores ou outros técnicos de TI.', 403, 'PERMISSAO_NEGADA_TI');
+      }
+      if (dto.papel && dto.papel !== 'OPERADOR') {
+        throw new AppError('Perfil de TI só pode definir papéis como OPERADOR.', 403, 'PERMISSAO_NEGADA_TI');
+      }
+    }
+
+    // Regra RN10: Proteção de Integridade do Administrador
+    if (solicitante.id === id) {
+      if (dto.ativo === false) {
+        throw new AppError('Você não pode inativar seu próprio usuário.', 400, 'AUTO_INATIVACAO_PROIBIDA');
+      }
+      if (dto.papel && dto.papel !== operador.papel) {
+        throw new AppError('Você não pode alterar seu próprio privilégio de acesso.', 400, 'AUTO_ALTERACAO_PROIBIDA');
+      }
+    }
+
+    if (operador.papel === 'ADMIN' && (dto.ativo === false || dto.papel !== 'ADMIN')) {
+      const activeAdmins = await operadorRepo.count({
+        where: { papel: 'ADMIN', ativo: true },
+      });
+      if (activeAdmins <= 1) {
+        throw new AppError(
+          'Não é permitido inativar ou rebaixar o único Administrador ativo do sistema.',
+          400,
+          'ULTIMO_ADMIN_PROIBIDO'
+        );
+      }
+    }
+
+    if (dto.papel !== undefined) {
+      operador.papel = dto.papel;
+    }
+
+    if (dto.ativo !== undefined) {
+      operador.ativo = dto.ativo;
+    }
+
+    return operadorRepo.save(operador);
+  }
+}

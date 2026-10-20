@@ -1,0 +1,928 @@
+<template>
+  <div class="space-y-6">
+    <!-- Cabeçalho -->
+    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-gray-200">
+      <div>
+        <h2 class="text-lg sm:text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
+          Inventário de Coletores
+        </h2>
+        <p class="text-xs text-gray-500 mt-1">Gestão patrimonial de ativos móveis, manutenções técnicas e disponibilidade operacional</p>
+      </div>
+      <div class="flex items-center gap-2 w-full sm:w-auto">
+        <button
+          v-if="authStore.canManageUsers"
+          @click="abrirModalNovoColetor"
+          class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-[#002B49] hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition"
+        >
+          + Cadastrar Novo Coletor
+        </button>
+      </div>
+    </div>
+
+    <!-- Alertas Globais -->
+    <div
+      v-if="mensagemAlerta"
+      class="p-4 rounded-xl border-2 text-xs sm:text-sm font-bold flex items-center justify-between shadow-sm"
+      :class="tipoAlerta === 'sucesso' ? 'bg-emerald-50 border-emerald-500 text-emerald-800' : 'bg-red-50 border-red-500 text-red-800'"
+    >
+      <div class="flex items-center gap-2">
+        <span class="text-base font-black">{{ tipoAlerta === 'sucesso' ? '✓' : '⚠' }}</span>
+        <span>{{ mensagemAlerta }}</span>
+      </div>
+      <button @click="mensagemAlerta = ''" class="text-xs font-black px-2 py-1 hover:underline">
+        Dispensar
+      </button>
+    </div>
+
+    <!-- Barra de Filtros e Busca -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col sm:flex-row gap-3">
+      <div class="flex-1">
+        <div class="relative">
+          <input
+            v-model="filtroBusca"
+            type="text"
+            placeholder="Buscar por patrimônio (7 dígitos), serial, marca ou modelo..."
+            class="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#002B49]"
+            @input="carregarColetores"
+          />
+          <div class="absolute left-3 top-2.5 text-gray-400">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+        </div>
+      </div>
+      <div class="w-full sm:w-48">
+        <select
+          v-model="filtroStatus"
+          class="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#002B49] bg-white text-gray-700 font-semibold"
+          @change="carregarColetores"
+        >
+          <option value="">Todos os Status</option>
+          <option value="DISPONIVEL">Disponível</option>
+          <option value="EM_USO">Em Uso</option>
+          <option value="MANUTENCAO">Em Manutenção</option>
+          <option value="INATIVO">Inativo</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div v-if="loading" class="bg-white p-12 rounded-2xl shadow-sm border border-gray-200 text-center text-gray-400 text-xs">
+      Carregando dados do inventário...
+    </div>
+
+    <!-- Empty State -->
+    <div v-else-if="coletores.length === 0" class="bg-white p-12 rounded-2xl shadow-sm border border-gray-200 text-center">
+      <p class="text-sm font-bold text-gray-700">Nenhum coletor localizado.</p>
+      <p class="text-xs text-gray-400 mt-1">Tente ajustar os filtros de busca ou cadastrar novos equipamentos.</p>
+    </div>
+
+    <div v-else class="space-y-4">
+      <!-- VISÃO DESKTOP (Tabela Completa em telas md e acima) -->
+      <div class="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-gray-600">
+            <thead class="bg-gray-100 text-gray-700 uppercase font-black text-[10px] tracking-wider">
+              <tr>
+                <th class="py-3 px-4">Patrimônio</th>
+                <th class="py-3 px-4">Marca</th>
+                <th class="py-3 px-4">Modelo</th>
+                <th class="py-3 px-4">Nº de Série</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4">Observação / Defeito</th>
+                <th class="py-3 px-4 text-right">Ações Operacionais</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr v-for="c in coletores" :key="c.id" class="hover:bg-gray-50/80 transition">
+                <td class="py-3.5 px-4 font-mono font-bold text-gray-900 text-sm">
+                  {{ c.patrimonio }}
+                </td>
+                <td class="py-3.5 px-4 font-semibold text-gray-800">{{ c.marca }}</td>
+                <td class="py-3.5 px-4 font-medium text-gray-800">{{ c.modelo }}</td>
+                <td class="py-3.5 px-4 font-mono text-gray-500 text-[11px]">{{ c.numeroSerie || '-' }}</td>
+                <td class="py-3.5 px-4">
+                  <span
+                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold"
+                    :class="getStatusBadgeClass(c.status)"
+                  >
+                    {{ c.status }}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 text-gray-500 text-xs">
+                  <div v-if="c.status === 'MANUTENCAO'" class="space-y-1">
+                    <span v-if="c.numeroOs" class="inline-flex items-center gap-1 font-mono text-[10px] bg-amber-100 text-amber-900 font-bold px-1.5 py-0.5 rounded border border-amber-300">
+                      OS: {{ c.numeroOs }}
+                    </span>
+                    <div class="text-amber-800 font-medium text-xs">
+                      {{ c.motivoManutencao || 'Defeito técnico' }}
+                    </div>
+                  </div>
+                  <span v-else class="text-gray-400">-</span>
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <div class="inline-flex items-center gap-1.5 justify-end">
+                    <!-- Ação ADMIN: Checkout Manual (quando DISPONIVEL) -->
+                    <button
+                      v-if="authStore.isAdmin && c.status === 'DISPONIVEL'"
+                      @click="abrirModalCheckoutManual(c)"
+                      title="Realizar empréstimo manual deste coletor"
+                      class="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded font-bold text-[11px] transition"
+                    >
+                      Checkout Manual
+                    </button>
+
+                    <!-- Ação ADMIN: Checkin Manual (quando EM_USO) -->
+                    <button
+                      v-if="authStore.isAdmin && c.status === 'EM_USO'"
+                      @click="abrirModalCheckinManual(c)"
+                      title="Concluir devolução manual imediata deste coletor"
+                      class="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 rounded font-bold text-[11px] transition"
+                    >
+                      Checkin Manual
+                    </button>
+
+                    <!-- Manutenção: Entrada Técnica (TI / Admin) ou Solicitar Manutenção (Operador) -->
+                    <button
+                      v-if="c.status === 'DISPONIVEL' && authStore.canManageMaintenance"
+                      @click="abrirModalManutencao(c)"
+                      class="px-2 py-1 text-amber-700 hover:bg-amber-50 rounded font-bold text-[11px] transition"
+                    >
+                      Entrada Técnica
+                    </button>
+                    <button
+                      v-else-if="c.status === 'DISPONIVEL'"
+                      @click="abrirModalManutencao(c)"
+                      class="px-2 py-1 text-amber-600 hover:bg-amber-50 rounded font-bold text-[11px] transition"
+                    >
+                      Solicitar Manutenção
+                    </button>
+
+                    <!-- Concluir Reparo (TI / Admin exclusivo) -->
+                    <button
+                      v-if="c.status === 'MANUTENCAO' && authStore.canManageMaintenance"
+                      @click="abrirModalConcluirManutencao(c)"
+                      class="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 rounded font-bold text-[11px] transition"
+                    >
+                      Concluir Reparo
+                    </button>
+                    <span
+                      v-else-if="c.status === 'MANUTENCAO'"
+                      class="px-2 py-0.5 text-[10px] font-bold text-amber-700 bg-amber-50 rounded border border-amber-200"
+                    >
+                      Em Reparo com TI
+                    </span>
+
+                    <!-- Inativar (Admin) -->
+                    <button
+                      v-if="authStore.isAdmin && c.status !== 'EM_USO' && c.status !== 'INATIVO'"
+                      @click="inativarColetor(c)"
+                      class="px-2 py-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded font-medium text-[11px] transition"
+                    >
+                      Inativar
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- VISÃO MOBILE / TABLET (Cards Responsivos em telas < md) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 md:hidden">
+        <div
+          v-for="c in coletores"
+          :key="c.id"
+          class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between space-y-3"
+        >
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="font-mono text-base font-black text-gray-900">{{ c.patrimonio }}</div>
+              <div class="text-xs font-bold text-gray-800 mt-0.5">{{ c.marca }} {{ c.modelo }}</div>
+              <div class="text-[10px] text-gray-400 font-mono mt-0.5">S/N: {{ c.numeroSerie || '-' }}</div>
+            </div>
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold"
+              :class="getStatusBadgeClass(c.status)"
+            >
+              {{ c.status }}
+            </span>
+          </div>
+
+          <div v-if="c.status === 'MANUTENCAO'" class="bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-[11px] text-amber-800 space-y-1">
+            <div v-if="c.numeroOs" class="inline-flex items-center gap-1 font-mono font-bold text-[10px] bg-amber-200/70 text-amber-900 px-1.5 py-0.5 rounded border border-amber-300">
+              <span>OS:</span> {{ c.numeroOs }}
+            </div>
+            <div><strong>Defeito:</strong> {{ c.motivoManutencao || 'Manutenção técnica' }}</div>
+          </div>
+
+          <!-- Botões de Ação Mobile/Tablet -->
+          <div class="pt-2 border-t border-gray-100 flex flex-wrap gap-2 justify-end">
+            <button
+              v-if="authStore.isAdmin && c.status === 'DISPONIVEL'"
+              @click="abrirModalCheckoutManual(c)"
+              class="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-bold text-xs"
+            >
+              Checkout Manual
+            </button>
+
+            <button
+              v-if="authStore.isAdmin && c.status === 'EM_USO'"
+              @click="abrirModalCheckinManual(c)"
+              class="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg font-bold text-xs"
+            >
+              Checkin Manual
+            </button>
+
+            <button
+              v-if="c.status === 'DISPONIVEL' && authStore.canManageMaintenance"
+              @click="abrirModalManutencao(c)"
+              class="px-3 py-1.5 bg-amber-50 text-amber-800 rounded-lg font-bold text-xs"
+            >
+              Entrada Técnica
+            </button>
+            <button
+              v-else-if="c.status === 'DISPONIVEL'"
+              @click="abrirModalManutencao(c)"
+              class="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg font-bold text-xs"
+            >
+              Solicitar Manutenção
+            </button>
+
+            <button
+              v-if="c.status === 'MANUTENCAO' && authStore.canManageMaintenance"
+              @click="abrirModalConcluirManutencao(c)"
+              class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-xs"
+            >
+              Concluir Reparo
+            </button>
+            <span
+              v-else-if="c.status === 'MANUTENCAO'"
+              class="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 rounded-lg border border-amber-200"
+            >
+              Em Reparo com TI
+            </span>
+
+            <button
+              v-if="authStore.isAdmin && c.status !== 'EM_USO' && c.status !== 'INATIVO'"
+              @click="inativarColetor(c)"
+              class="px-2 py-1.5 text-red-500 font-bold text-xs"
+            >
+              Inativar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MODAL ADMIN: CHECKOUT MANUAL -->
+    <div
+      v-if="modalCheckoutManualAberto && coletorSelecionado"
+      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+    >
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-start border-b pb-3">
+          <div>
+            <span class="text-[10px] font-black uppercase text-blue-700 bg-blue-50 px-2 py-0.5 rounded">
+              Controle Administrativo
+            </span>
+            <h3 class="text-base font-extrabold text-gray-900 mt-1">
+              Checkout Manual - Coletor {{ coletorSelecionado.patrimonio }}
+            </h3>
+            <p class="text-xs text-gray-500">
+              {{ coletorSelecionado.marca }} {{ coletorSelecionado.modelo }} (S/N: {{ coletorSelecionado.numeroSerie || '-' }})
+            </p>
+          </div>
+          <button @click="fecharModalCheckoutManual" class="text-gray-400 hover:text-gray-700 text-lg leading-none">
+            &times;
+          </button>
+        </div>
+
+        <div v-if="erroModalCheckout" class="p-3 rounded-lg bg-red-50 border border-red-300 text-red-700 text-xs font-bold">
+          {{ erroModalCheckout }}
+        </div>
+
+        <form @submit.prevent="confirmarCheckoutManual" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+              Crachá ou Matrícula do Colaborador (14 ou 7 dígitos)*
+            </label>
+            <div class="flex gap-2">
+              <input
+                v-model="inputColaborador"
+                type="text"
+                required
+                placeholder="Bipe o crachá ou digite a matrícula..."
+                class="flex-1 p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+                @keydown.enter.prevent="validarColaboradorCheckout"
+              />
+              <button
+                type="button"
+                :disabled="loadingValidaColab || !inputColaborador.trim()"
+                @click="validarColaboradorCheckout"
+                class="px-3 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl disabled:opacity-50 transition"
+              >
+                {{ loadingValidaColab ? 'Validando...' : 'Verificar' }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Dados do Colaborador Confirmado -->
+          <div
+            v-if="colaboradorCheckoutValido"
+            class="p-3 bg-emerald-50 border border-emerald-200 rounded-xl space-y-1"
+          >
+            <div class="text-xs font-black text-emerald-900">{{ colaboradorCheckoutValido.nome }}</div>
+            <div class="text-[11px] text-emerald-800 flex flex-wrap gap-x-3">
+              <span><strong>Matrícula:</strong> {{ colaboradorCheckoutValido.matricula }}</span>
+              <span><strong>Setor:</strong> {{ colaboradorCheckoutValido.setor }}</span>
+              <span><strong>Função:</strong> {{ colaboradorCheckoutValido.funcao }}</span>
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-3 border-t">
+            <button
+              type="button"
+              @click="fecharModalCheckoutManual"
+              class="px-4 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              :disabled="loadingCheckoutSubmit || !colaboradorCheckoutValido"
+              class="px-5 py-2 bg-[#002B49] hover:bg-slate-800 text-white rounded-xl text-xs font-bold disabled:opacity-40 transition shadow-sm"
+            >
+              {{ loadingCheckoutSubmit ? 'Registrando...' : 'Confirmar Saída Manual' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL ADMIN: CHECKIN MANUAL -->
+    <div
+      v-if="modalCheckinManualAberto && coletorSelecionado"
+      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+    >
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-start border-b pb-3">
+          <div>
+            <span class="text-[10px] font-black uppercase text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
+              Controle Administrativo
+            </span>
+            <h3 class="text-base font-extrabold text-gray-900 mt-1">
+              Checkin Manual - Coletor {{ coletorSelecionado.patrimonio }}
+            </h3>
+            <p class="text-xs text-gray-500">
+              {{ coletorSelecionado.marca }} {{ coletorSelecionado.modelo }} (S/N: {{ coletorSelecionado.numeroSerie || '-' }})
+            </p>
+          </div>
+          <button @click="fecharModalCheckinManual" class="text-gray-400 hover:text-gray-700 text-lg leading-none">
+            &times;
+          </button>
+        </div>
+
+        <div v-if="erroModalCheckin" class="p-3 rounded-lg bg-red-50 border border-red-300 text-red-700 text-xs font-bold">
+          {{ erroModalCheckin }}
+        </div>
+
+        <!-- Dados da Custódia Atual -->
+        <div v-if="custodiaAtivaColetor" class="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-1">
+          <div class="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Custódia Aberta</div>
+          <div class="text-xs font-black text-gray-900">{{ custodiaAtivaColetor.colaborador.nome }}</div>
+          <div class="text-[11px] text-gray-600 flex flex-wrap gap-x-3">
+            <span><strong>Matrícula:</strong> {{ custodiaAtivaColetor.colaborador.matricula }}</span>
+            <span><strong>Setor:</strong> {{ custodiaAtivaColetor.colaborador.setor }}</span>
+            <span><strong>Tempo de Uso:</strong> {{ custodiaAtivaColetor.tempoFormatado }}</span>
+          </div>
+        </div>
+
+        <form @submit.prevent="confirmarCheckinManual" class="space-y-4">
+          <!-- Opção de Avaria -->
+          <div class="space-y-2 pt-1">
+            <div class="flex items-center gap-2">
+              <input
+                id="checkinAvaria"
+                type="checkbox"
+                v-model="checkinComAvaria"
+                class="h-4 w-4 text-red-600 rounded border-gray-300 focus:ring-red-500"
+              />
+              <label for="checkinAvaria" class="text-xs font-extrabold text-red-700 uppercase tracking-wider cursor-pointer">
+                Coletor com Avaria / Enviar para Manutenção
+              </label>
+            </div>
+
+            <div v-if="checkinComAvaria" class="space-y-3 bg-red-50/50 p-3 rounded-xl border border-red-200">
+              <div>
+                <label class="block text-xs font-bold text-red-900">Número da OS (7 Dígitos Numéricos)*</label>
+                <input
+                  v-model="checkinNumeroOs"
+                  type="text"
+                  maxlength="7"
+                  required
+                  @input="checkinNumeroOs = checkinNumeroOs.replace(/\D/g, '').slice(0, 7)"
+                  placeholder="Ex: 1049283"
+                  class="w-full mt-1 p-2 text-xs rounded-xl border border-red-300 font-mono outline-none focus:ring-2 focus:ring-red-500 bg-white"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-red-900">Descrição do Defeito*</label>
+                <textarea
+                  v-model="checkinMotivoManutencao"
+                  required
+                  rows="2"
+                  placeholder="Ex: Gatilho solto, display quebrado, bateria inchada..."
+                  class="w-full mt-1 p-2.5 text-xs rounded-xl border border-red-300 focus:ring-2 focus:ring-red-500 outline-none bg-white"
+                ></textarea>
+              </div>
+            </div>
+
+            <div v-else class="space-y-1">
+              <label class="block text-xs font-medium text-gray-500">Observação opcional:</label>
+              <input
+                v-model="checkinObservacao"
+                type="text"
+                placeholder="Ex: Devolução autorizada pela supervisão do turno"
+                class="w-full p-2 text-xs rounded-xl border border-gray-200 focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
+            </div>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-3 border-t">
+            <button
+              type="button"
+              @click="fecharModalCheckinManual"
+              class="px-4 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              :disabled="loadingCheckinSubmit || (checkinComAvaria && (!checkinMotivoManutencao.trim() || !checkinNumeroOs.trim()))"
+              class="px-5 py-2 text-white rounded-xl text-xs font-bold disabled:opacity-40 transition shadow-sm"
+              :class="checkinComAvaria ? 'bg-red-600 hover:bg-red-700' : 'bg-emerald-600 hover:bg-emerald-700'"
+            >
+              {{ loadingCheckinSubmit ? 'Processando...' : checkinComAvaria ? 'Devolver com Defeito' : 'Confirmar Check-in Manual' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: NOVO COLETOR (ADMIN) -->
+    <div
+      v-if="modalNovoColetorAberto"
+      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+    >
+      <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <h3 class="text-base font-extrabold text-gray-900 border-b pb-2">Cadastrar Novo Coletor</h3>
+        <form @submit.prevent="salvarNovoColetor" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Patrimônio (7 Dígitos Numéricos)*</label>
+            <input
+              v-model="novoColetor.patrimonio"
+              type="text"
+              maxlength="7"
+              required
+              placeholder="Ex: 1002345"
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Marca*</label>
+            <input
+              v-model="novoColetor.marca"
+              type="text"
+              required
+              placeholder="Ex: Zebra, Honeywell"
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Modelo*</label>
+            <input
+              v-model="novoColetor.modelo"
+              type="text"
+              required
+              placeholder="Ex: TC21, MC3300"
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Número de Série (Opcional)</label>
+            <input
+              v-model="novoColetor.numeroSerie"
+              type="text"
+              placeholder="Ex: 212505230D0090"
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+            />
+          </div>
+          <div class="flex justify-end gap-2 pt-3 border-t">
+            <button
+              type="button"
+              @click="modalNovoColetorAberto = false"
+              class="px-4 py-2 border rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-[#002B49] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm"
+            >
+              Salvar Coletor
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: ENVIAR MANUTENÇÃO -->
+    <div
+      v-if="modalManutencaoAberto && coletorSelecionado"
+      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+    >
+      <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="border-b pb-2">
+          <h3 class="text-base font-extrabold text-gray-900">
+            {{ authStore.canManageMaintenance ? 'Entrada Técnica em Manutenção' : 'Solicitar Manutenção' }} - Coletor {{ coletorSelecionado.patrimonio }}
+          </h3>
+          <p class="text-xs text-gray-500 mt-0.5">
+            {{ authStore.canManageMaintenance ? 'Registrar ordem técnica com causa raiz e diagnóstico' : 'Descreva a falha ou avaria constatada para a equipe técnica de TI' }}
+          </p>
+        </div>
+        <form @submit.prevent="confirmarEnvioManutencao" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Número da OS (7 Dígitos Numéricos)*</label>
+            <input
+              v-model="numeroOsInput"
+              type="text"
+              maxlength="7"
+              required
+              @input="numeroOsInput = numeroOsInput.replace(/\D/g, '').slice(0, 7)"
+              placeholder="Ex: 1049283"
+              class="w-full mt-1 p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-amber-500"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Motivo / Descrição do Defeito*</label>
+            <textarea
+              v-model="motivoManutencaoInput"
+              required
+              rows="3"
+              placeholder="Descreva o problema constatado..."
+              class="w-full mt-1 p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-amber-500"
+            ></textarea>
+          </div>
+          <div class="flex justify-end gap-2 pt-3 border-t">
+            <button
+              type="button"
+              @click="modalManutencaoAberto = false"
+              class="px-4 py-2 border rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+            >
+              {{ authStore.canManageMaintenance ? 'Confirmar Entrada Técnica' : 'Enviar Solicitação à TI' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: CONCLUIR MANUTENÇÃO -->
+    <div
+      v-if="modalConcluirAberto && coletorSelecionado"
+      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+    >
+      <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <h3 class="text-base font-extrabold text-gray-900 border-b pb-2">
+          Concluir Reparo do Coletor {{ coletorSelecionado.patrimonio }}
+        </h3>
+        <form @submit.prevent="confirmarConclusaoManutencao" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Laudo / Solução Realizada*</label>
+            <textarea
+              v-model="solucaoManutencaoInput"
+              required
+              rows="3"
+              placeholder="Ex: Troca do display, restauração de firmware, substituição de bateria..."
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-emerald-500"
+            ></textarea>
+          </div>
+          <div class="flex justify-end gap-2 pt-3 border-t">
+            <button
+              type="button"
+              @click="modalConcluirAberto = false"
+              class="px-4 py-2 border rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+            >
+              Liberar Coletor
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import { ref, onMounted } from 'vue';
+import api from '../api/axios';
+import { useAuthStore } from '../stores/auth';
+
+const authStore = useAuthStore();
+
+const coletores = ref<any[]>([]);
+const loading = ref(false);
+const filtroBusca = ref('');
+const filtroStatus = ref('');
+
+const mensagemAlerta = ref('');
+const tipoAlerta = ref<'sucesso' | 'erro'>('sucesso');
+
+const exibirAlerta = (msg: string, tipo: 'sucesso' | 'erro' = 'sucesso') => {
+  mensagemAlerta.value = msg;
+  tipoAlerta.value = tipo;
+  setTimeout(() => {
+    if (mensagemAlerta.value === msg) {
+      mensagemAlerta.value = '';
+    }
+  }, 6000);
+};
+
+// Modal Cadastro Coletor
+const modalNovoColetorAberto = ref(false);
+const novoColetor = ref({
+  patrimonio: '',
+  marca: '',
+  modelo: '',
+  numeroSerie: '',
+});
+
+// Modais Manutenção
+const modalManutencaoAberto = ref(false);
+const modalConcluirAberto = ref(false);
+const coletorSelecionado = ref<any>(null);
+const numeroOsInput = ref('');
+const motivoManutencaoInput = ref('');
+const solucaoManutencaoInput = ref('');
+
+// Modal Admin: Checkout Manual
+const modalCheckoutManualAberto = ref(false);
+const inputColaborador = ref('');
+const colaboradorCheckoutValido = ref<any>(null);
+const loadingValidaColab = ref(false);
+const loadingCheckoutSubmit = ref(false);
+const erroModalCheckout = ref('');
+
+// Modal Admin: Checkin Manual
+const modalCheckinManualAberto = ref(false);
+const custodiaAtivaColetor = ref<any>(null);
+const checkinComAvaria = ref(false);
+const checkinNumeroOs = ref('');
+const checkinMotivoManutencao = ref('');
+const checkinObservacao = ref('');
+const loadingCheckinSubmit = ref(false);
+const erroModalCheckin = ref('');
+
+const getStatusBadgeClass = (status: string) => {
+  switch (status) {
+    case 'DISPONIVEL':
+      return 'bg-emerald-100 text-emerald-800';
+    case 'EM_USO':
+      return 'bg-blue-100 text-blue-800';
+    case 'MANUTENCAO':
+      return 'bg-amber-100 text-amber-800';
+    default:
+      return 'bg-gray-100 text-gray-600';
+  }
+};
+
+const carregarColetores = async () => {
+  loading.value = true;
+  try {
+    const params: any = {};
+    if (filtroBusca.value.trim()) params.busca = filtroBusca.value.trim();
+    if (filtroStatus.value) params.status = filtroStatus.value;
+    const { data } = await api.get('/coletores', { params });
+    coletores.value = data.dados || [];
+  } catch (err) {
+    console.error('Erro ao listar coletores:', err);
+  } finally {
+    loading.value = false;
+  }
+};
+
+const abrirModalNovoColetor = () => {
+  novoColetor.value = { patrimonio: '', marca: '', modelo: '', numeroSerie: '' };
+  modalNovoColetorAberto.value = true;
+};
+
+const salvarNovoColetor = async () => {
+  try {
+    await api.post('/coletores', novoColetor.value);
+    modalNovoColetorAberto.value = false;
+    exibirAlerta(`Coletor ${novoColetor.value.patrimonio} cadastrado com sucesso!`, 'sucesso');
+    await carregarColetores();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao cadastrar coletor.', 'erro');
+  }
+};
+
+// Checkout Manual (Admin)
+const abrirModalCheckoutManual = (coletor: any) => {
+  coletorSelecionado.value = coletor;
+  inputColaborador.value = '';
+  colaboradorCheckoutValido.value = null;
+  erroModalCheckout.value = '';
+  modalCheckoutManualAberto.value = true;
+};
+
+const fecharModalCheckoutManual = () => {
+  modalCheckoutManualAberto.value = false;
+  coletorSelecionado.value = null;
+  colaboradorCheckoutValido.value = null;
+  inputColaborador.value = '';
+  erroModalCheckout.value = '';
+};
+
+const validarColaboradorCheckout = async () => {
+  const codigo = inputColaborador.value.trim();
+  if (!codigo) return;
+
+  erroModalCheckout.value = '';
+  loadingValidaColab.value = true;
+  colaboradorCheckoutValido.value = null;
+
+  try {
+    const { data } = await api.post('/colaboradores/validar-cracha', { codigo });
+    colaboradorCheckoutValido.value = data.dados;
+  } catch (err: any) {
+    erroModalCheckout.value = err.response?.data?.mensagem || 'Colaborador não encontrado ou não apto.';
+  } finally {
+    loadingValidaColab.value = false;
+  }
+};
+
+const confirmarCheckoutManual = async () => {
+  if (!coletorSelecionado.value || !colaboradorCheckoutValido.value) return;
+
+  erroModalCheckout.value = '';
+  loadingCheckoutSubmit.value = true;
+
+  try {
+    await api.post('/movimentacoes/retirada', {
+      matricula: colaboradorCheckoutValido.value.matricula,
+      patrimonio: coletorSelecionado.value.patrimonio,
+    });
+    const pat = coletorSelecionado.value.patrimonio;
+    const nome = colaboradorCheckoutValido.value.nome;
+    fecharModalCheckoutManual();
+    exibirAlerta(`Checkout manual realizado com sucesso! Coletor ${pat} entregue a ${nome}.`, 'sucesso');
+    await carregarColetores();
+  } catch (err: any) {
+    erroModalCheckout.value = err.response?.data?.mensagem || 'Erro ao realizar checkout manual.';
+  } finally {
+    loadingCheckoutSubmit.value = false;
+  }
+};
+
+// Checkin Manual (Admin)
+const abrirModalCheckinManual = async (coletor: any) => {
+  coletorSelecionado.value = coletor;
+  custodiaAtivaColetor.value = null;
+  checkinComAvaria.value = false;
+  checkinNumeroOs.value = '';
+  checkinMotivoManutencao.value = '';
+  checkinObservacao.value = '';
+  erroModalCheckin.value = '';
+  modalCheckinManualAberto.value = true;
+
+  try {
+    const { data } = await api.get(`/movimentacoes/ativa-por-patrimonio/${coletor.patrimonio}`);
+    custodiaAtivaColetor.value = data.dados;
+  } catch (err) {
+    console.warn('Não foi possível obter detalhes prévios da custódia:', err);
+  }
+};
+
+const fecharModalCheckinManual = () => {
+  modalCheckinManualAberto.value = false;
+  coletorSelecionado.value = null;
+  custodiaAtivaColetor.value = null;
+  checkinNumeroOs.value = '';
+  erroModalCheckin.value = '';
+};
+
+const confirmarCheckinManual = async () => {
+  if (!coletorSelecionado.value) return;
+
+  if (checkinComAvaria.value && !/^[0-9]{7}$/.test(checkinNumeroOs.value.trim())) {
+    erroModalCheckin.value = 'O número da OS deve conter exatamente 7 dígitos numéricos.';
+    return;
+  }
+
+  if (checkinComAvaria.value && !checkinMotivoManutencao.value.trim()) {
+    erroModalCheckin.value = 'Informe o motivo da avaria para encaminhar o coletor para manutenção.';
+    return;
+  }
+
+  erroModalCheckin.value = '';
+  loadingCheckinSubmit.value = true;
+
+  try {
+    await api.post(`/movimentacoes/coletor/${coletorSelecionado.value.id}/devolucao`, {
+      avaria: checkinComAvaria.value,
+      numeroOs: checkinComAvaria.value ? checkinNumeroOs.value.trim() : null,
+      motivoManutencao: checkinComAvaria.value ? checkinMotivoManutencao.value.trim() : null,
+      observacao: checkinObservacao.value.trim() || null,
+    });
+    const pat = coletorSelecionado.value.patrimonio;
+    fecharModalCheckinManual();
+    exibirAlerta(`Check-in manual do coletor ${pat} confirmado com sucesso!`, 'sucesso');
+    await carregarColetores();
+  } catch (err: any) {
+    erroModalCheckin.value = err.response?.data?.mensagem || 'Erro ao realizar checkin manual.';
+  } finally {
+    loadingCheckinSubmit.value = false;
+  }
+};
+
+// Manutenção Normal
+const abrirModalManutencao = (coletor: any) => {
+  coletorSelecionado.value = coletor;
+  numeroOsInput.value = '';
+  motivoManutencaoInput.value = '';
+  modalManutencaoAberto.value = true;
+};
+
+const confirmarEnvioManutencao = async () => {
+  if (!coletorSelecionado.value) return;
+
+  const os = numeroOsInput.value.trim();
+  if (!/^[0-9]{7}$/.test(os)) {
+    exibirAlerta('O número da OS deve conter exatamente 7 dígitos numéricos.', 'erro');
+    return;
+  }
+
+  try {
+    const rota = authStore.canManageMaintenance ? 'enviar-manutencao' : 'solicitar-manutencao';
+    await api.post(`/coletores/${coletorSelecionado.value.id}/${rota}`, {
+      motivo: motivoManutencaoInput.value.trim(),
+      numeroOs: numeroOsInput.value.trim(),
+    });
+    modalManutencaoAberto.value = false;
+    const msg = authStore.canManageMaintenance
+      ? `Coletor ${coletorSelecionado.value.patrimonio} colocado em manutenção técnica (OS: ${numeroOsInput.value.trim()}).`
+      : `Solicitação de manutenção do coletor ${coletorSelecionado.value.patrimonio} (OS: ${numeroOsInput.value.trim()}) encaminhada à TI.`;
+    exibirAlerta(msg, 'sucesso');
+    await carregarColetores();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao enviar para manutenção.', 'erro');
+  }
+};
+
+const abrirModalConcluirManutencao = (coletor: any) => {
+  coletorSelecionado.value = coletor;
+  solucaoManutencaoInput.value = '';
+  modalConcluirAberto.value = true;
+};
+
+const confirmarConclusaoManutencao = async () => {
+  if (!coletorSelecionado.value) return;
+  try {
+    await api.post(`/coletores/${coletorSelecionado.value.id}/concluir-manutencao`, {
+      solucao: solucaoManutencaoInput.value,
+    });
+    modalConcluirAberto.value = false;
+    exibirAlerta(`Reparo do coletor ${coletorSelecionado.value.patrimonio} concluído com sucesso!`, 'sucesso');
+    await carregarColetores();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao concluir manutenção.', 'erro');
+  }
+};
+
+const inativarColetor = async (coletor: any) => {
+  if (!confirm(`Deseja realmente inativar o coletor patrimônio ${coletor.patrimonio}?`)) return;
+  try {
+    await api.delete(`/coletores/${coletor.id}`);
+    exibirAlerta(`Coletor ${coletor.patrimonio} inativado.`, 'sucesso');
+    await carregarColetores();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao inativar coletor.', 'erro');
+  }
+};
+
+onMounted(() => {
+  carregarColetores();
+});
+</script>
