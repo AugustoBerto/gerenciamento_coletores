@@ -10,11 +10,6 @@
             Bipe o crachá do colaborador (código de barras, matrícula ou RFID) para identificar o aparelho e concluir a devolução.
           </p>
         </div>
-        <div class="hidden sm:block text-right">
-          <span class="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Check-in por Colaborador
-          </span>
-        </div>
       </div>
 
       <!-- Alertas -->
