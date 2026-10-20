@@ -118,12 +118,7 @@
                 </td>
                 <td class="py-3.5 px-4 text-right">
                   <div class="inline-flex items-center gap-2 justify-end">
-                    <!-- Perfil Fixo suporte.ti -->
-                    <span v-if="u.usuario === 'suporte.ti'" class="px-2 py-0.5 text-[10px] font-bold text-amber-700 bg-amber-50 rounded border border-amber-200">
-                      Perfil Técnico Fixo
-                    </span>
-
-                    <template v-else>
+                    <template v-if="u.usuario !== 'suporte.ti'">
                       <!-- Alternar Papel (Exclusivo Administrador Global) -->
                       <button
                         v-if="authStore.isAdmin && u.id !== authStore.user?.id"
@@ -143,9 +138,6 @@
                       >
                         {{ u.ativo ? 'Inativar' : 'Reativar' }}
                       </button>
-                      <span v-else-if="u.id !== authStore.user?.id" class="text-[10px] text-gray-400 italic">
-                        Restrito
-                      </span>
                     </template>
                   </div>
                 </td>
@@ -188,30 +180,22 @@
             </span>
           </div>
 
-          <div v-if="u.id !== authStore.user?.id" class="pt-2 border-t border-gray-100 flex justify-end gap-2 items-center">
-            <span v-if="u.usuario === 'suporte.ti'" class="px-2.5 py-1 text-[10px] font-bold text-amber-700 bg-amber-50 rounded-lg border border-amber-200">
-              Perfil Técnico Fixo
-            </span>
-            <template v-else>
-              <button
-                v-if="authStore.isAdmin"
-                @click="alternarPapel(u)"
-                class="px-2.5 py-1 text-xs font-bold border rounded-lg text-gray-700 bg-gray-50"
-              >
-                {{ u.papel === 'ADMIN' ? 'P/ Operador' : 'P/ Admin' }}
-              </button>
-              <button
-                v-if="podeModificarUsuario(u)"
-                @click="alternarStatus(u)"
-                class="px-3 py-1 text-xs font-bold rounded-lg"
-                :class="u.ativo ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
-              >
-                {{ u.ativo ? 'Inativar' : 'Reativar' }}
-              </button>
-              <span v-else class="text-[10px] text-gray-400 italic">
-                Restrito
-              </span>
-            </template>
+          <div v-if="u.id !== authStore.user?.id && u.usuario !== 'suporte.ti' && (authStore.isAdmin || podeModificarUsuario(u))" class="pt-2 border-t border-gray-100 flex justify-end gap-2 items-center">
+            <button
+              v-if="authStore.isAdmin"
+              @click="alternarPapel(u)"
+              class="px-2.5 py-1 text-xs font-bold border rounded-lg text-gray-700 bg-gray-50"
+            >
+              {{ u.papel === 'ADMIN' ? 'P/ Operador' : 'P/ Admin' }}
+            </button>
+            <button
+              v-if="podeModificarUsuario(u)"
+              @click="alternarStatus(u)"
+              class="px-3 py-1 text-xs font-bold rounded-lg"
+              :class="u.ativo ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
+            >
+              {{ u.ativo ? 'Inativar' : 'Reativar' }}
+            </button>
           </div>
         </div>
       </div>
