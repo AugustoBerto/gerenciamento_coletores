@@ -52,6 +52,16 @@
       </div>
       <div class="w-full sm:w-48">
         <select
+          v-model="filtroSetor"
+          class="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#002B49] bg-white text-gray-700 font-semibold"
+          @change="carregarColetores"
+        >
+          <option value="">Todos os Setores</option>
+          <option v-for="s in setores" :key="s.id" :value="s.id">{{ s.nome }}</option>
+        </select>
+      </div>
+      <div class="w-full sm:w-48">
+        <select
           v-model="filtroStatus"
           class="w-full px-3 py-2 text-xs border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#002B49] bg-white text-gray-700 font-semibold"
           @change="carregarColetores"
@@ -86,6 +96,7 @@
                 <th class="py-3 px-4">Patrimônio</th>
                 <th class="py-3 px-4">Marca</th>
                 <th class="py-3 px-4">Modelo</th>
+                <th class="py-3 px-4">Setor</th>
                 <th class="py-3 px-4">Nº de Série</th>
                 <th class="py-3 px-4">Status</th>
                 <th class="py-3 px-4">Observação / Defeito</th>
@@ -99,6 +110,15 @@
                 </td>
                 <td class="py-3.5 px-4 font-semibold text-gray-800">{{ c.marca }}</td>
                 <td class="py-3.5 px-4 font-medium text-gray-800">{{ c.modelo }}</td>
+                <td class="py-3.5 px-4">
+                  <span
+                    v-if="c.setor?.nome"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200"
+                  >
+                    {{ c.setor.nome }}
+                  </span>
+                  <span v-else class="text-gray-400 text-[11px] italic">Geral</span>
+                </td>
                 <td class="py-3.5 px-4 font-mono text-gray-500 text-[11px]">{{ c.numeroSerie || '-' }}</td>
                 <td class="py-3.5 px-4">
                   <span
@@ -172,9 +192,29 @@
                       Em Reparo com TI
                     </span>
 
-                    <!-- Inativar (Admin) -->
+                    <!-- Editar Coletor (Admin & TI) -->
                     <button
-                      v-if="authStore.isAdmin && c.status !== 'EM_USO' && c.status !== 'INATIVO'"
+                      v-if="authStore.canManageUsers"
+                      @click="abrirModalEditarColetor(c)"
+                      title="Editar dados e setor do coletor"
+                      class="px-2 py-1 text-slate-700 hover:bg-slate-100 rounded font-bold text-[11px] transition"
+                    >
+                      Editar
+                    </button>
+
+                    <!-- Reativar (Admin & TI) -->
+                    <button
+                      v-if="authStore.canManageUsers && c.status === 'INATIVO'"
+                      @click="reativarColetor(c)"
+                      title="Reativar este coletor no sistema"
+                      class="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 rounded font-bold text-[11px] transition"
+                    >
+                      Reativar
+                    </button>
+
+                    <!-- Inativar (Admin & TI) -->
+                    <button
+                      v-if="authStore.canManageUsers && c.status !== 'EM_USO' && c.status !== 'INATIVO'"
                       @click="inativarColetor(c)"
                       class="px-2 py-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded font-medium text-[11px] transition"
                     >
@@ -199,7 +239,16 @@
             <div>
               <div class="font-mono text-base font-black text-gray-900">{{ c.patrimonio }}</div>
               <div class="text-xs font-bold text-gray-800 mt-0.5">{{ c.marca }} {{ c.modelo }}</div>
-              <div class="text-[10px] text-gray-400 font-mono mt-0.5">S/N: {{ c.numeroSerie || '-' }}</div>
+              <div class="flex items-center gap-2 mt-1">
+                <span
+                  v-if="c.setor?.nome"
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200"
+                >
+                  {{ c.setor.nome }}
+                </span>
+                <span v-else class="text-[10px] text-gray-400">Geral</span>
+                <span class="text-[10px] text-gray-400 font-mono">S/N: {{ c.numeroSerie || '-' }}</span>
+              </div>
             </div>
             <span
               class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold"
@@ -264,9 +313,25 @@
             </span>
 
             <button
-              v-if="authStore.isAdmin && c.status !== 'EM_USO' && c.status !== 'INATIVO'"
+              v-if="authStore.canManageUsers"
+              @click="abrirModalEditarColetor(c)"
+              class="px-3 py-1.5 text-slate-700 hover:bg-slate-100 border border-slate-300 rounded-lg font-bold text-xs"
+            >
+              Editar
+            </button>
+
+            <button
+              v-if="authStore.canManageUsers && c.status === 'INATIVO'"
+              @click="reativarColetor(c)"
+              class="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg font-bold text-xs"
+            >
+              Reativar
+            </button>
+
+            <button
+              v-if="authStore.canManageUsers && c.status !== 'EM_USO' && c.status !== 'INATIVO'"
               @click="inativarColetor(c)"
-              class="px-2 py-1.5 text-red-500 font-bold text-xs"
+              class="px-3 py-1.5 text-red-600 hover:bg-red-50 border border-red-200 rounded-lg font-bold text-xs"
             >
               Inativar
             </button>
@@ -518,6 +583,18 @@
               class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
             />
           </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Setor de Localização (Opcional)</label>
+            <select
+              v-model="novoColetor.setorId"
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49] bg-white text-gray-800 font-semibold"
+            >
+              <option :value="null">Nenhum Setor (Geral)</option>
+              <option v-for="s in setoresAtivos" :key="s.id" :value="s.id">
+                {{ s.nome }}
+              </option>
+            </select>
+          </div>
           <div class="flex justify-end gap-2 pt-3 border-t">
             <button
               type="button"
@@ -531,6 +608,81 @@
               class="px-4 py-2 bg-[#002B49] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm"
             >
               Salvar Coletor
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <!-- MODAL: EDITAR COLETOR (ADMIN / TI) -->
+    <div
+      v-if="modalEditarColetorAberto && formEditarColetor"
+      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+    >
+      <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-start border-b pb-2">
+          <div>
+            <h3 class="text-base font-extrabold text-gray-900">Editar Coletor</h3>
+            <p class="text-xs text-gray-500 font-mono">Patrimônio: {{ formEditarColetor.patrimonio }}</p>
+          </div>
+          <button @click="modalEditarColetorAberto = false" class="text-gray-400 hover:text-gray-700 text-lg leading-none">
+            &times;
+          </button>
+        </div>
+
+        <form @submit.prevent="salvarEdicaoColetor" class="space-y-3">
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Marca*</label>
+            <input
+              v-model="formEditarColetor.marca"
+              type="text"
+              required
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Modelo*</label>
+            <input
+              v-model="formEditarColetor.modelo"
+              type="text"
+              required
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Número de Série</label>
+            <input
+              v-model="formEditarColetor.numeroSerie"
+              type="text"
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+            />
+          </div>
+          <div>
+            <label class="block text-xs font-bold text-gray-700">Setor de Localização</label>
+            <select
+              v-model="formEditarColetor.setorId"
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49] bg-white text-gray-800 font-semibold"
+            >
+              <option :value="null">Nenhum Setor (Geral)</option>
+              <option v-for="s in setoresAtivos" :key="s.id" :value="s.id">
+                {{ s.nome }}
+              </option>
+            </select>
+          </div>
+          <div class="flex justify-end gap-2 pt-3 border-t">
+            <button
+              type="button"
+              @click="modalEditarColetorAberto = false"
+              class="px-4 py-2 border rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              :disabled="loadingSalvarEdicao"
+              class="px-4 py-2 bg-[#002B49] hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition shadow-sm disabled:opacity-50"
+            >
+              {{ loadingSalvarEdicao ? 'Salvando...' : 'Salvar Alterações' }}
             </button>
           </div>
         </form>
@@ -635,7 +787,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, computed, onMounted } from 'vue';
 import api from '../api/axios';
 import { useAuthStore } from '../stores/auth';
 
@@ -645,6 +797,10 @@ const coletores = ref<any[]>([]);
 const loading = ref(false);
 const filtroBusca = ref('');
 const filtroStatus = ref('');
+const filtroSetor = ref('');
+
+const setores = ref<any[]>([]);
+const setoresAtivos = computed(() => setores.value.filter((s) => s.ativo));
 
 const mensagemAlerta = ref('');
 const tipoAlerta = ref<'sucesso' | 'erro'>('sucesso');
@@ -666,7 +822,72 @@ const novoColetor = ref({
   marca: '',
   modelo: '',
   numeroSerie: '',
+  setorId: null as string | null,
 });
+
+// Modal Editar Coletor
+const modalEditarColetorAberto = ref(false);
+const formEditarColetor = ref<any>(null);
+const loadingSalvarEdicao = ref(false);
+
+const carregarSetores = async () => {
+  try {
+    const { data } = await api.get('/configuracoes/setores');
+    setores.value = data.dados || [];
+  } catch (err) {
+    console.error('Erro ao carregar setores:', err);
+  }
+};
+
+const abrirModalNovoColetor = () => {
+  novoColetor.value = { patrimonio: '', marca: '', modelo: '', numeroSerie: '', setorId: null };
+  if (setores.value.length === 0) carregarSetores();
+  modalNovoColetorAberto.value = true;
+};
+
+const salvarNovoColetor = async () => {
+  try {
+    await api.post('/coletores', novoColetor.value);
+    modalNovoColetorAberto.value = false;
+    exibirAlerta(`Coletor ${novoColetor.value.patrimonio} cadastrado com sucesso!`, 'sucesso');
+    await carregarColetores();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao cadastrar coletor.', 'erro');
+  }
+};
+
+const abrirModalEditarColetor = (coletor: any) => {
+  formEditarColetor.value = {
+    id: coletor.id,
+    patrimonio: coletor.patrimonio,
+    marca: coletor.marca,
+    modelo: coletor.modelo,
+    numeroSerie: coletor.numeroSerie || '',
+    setorId: coletor.setorId || null,
+  };
+  if (setores.value.length === 0) carregarSetores();
+  modalEditarColetorAberto.value = true;
+};
+
+const salvarEdicaoColetor = async () => {
+  if (!formEditarColetor.value) return;
+  loadingSalvarEdicao.value = true;
+  try {
+    await api.put(`/coletores/${formEditarColetor.value.id}`, {
+      marca: formEditarColetor.value.marca,
+      modelo: formEditarColetor.value.modelo,
+      numeroSerie: formEditarColetor.value.numeroSerie || null,
+      setorId: formEditarColetor.value.setorId || null,
+    });
+    modalEditarColetorAberto.value = false;
+    exibirAlerta(`Coletor ${formEditarColetor.value.patrimonio} atualizado com sucesso!`, 'sucesso');
+    await carregarColetores();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao atualizar coletor.', 'erro');
+  } finally {
+    loadingSalvarEdicao.value = false;
+  }
+};
 
 // Modais Manutenção
 const modalManutencaoAberto = ref(false);
@@ -713,28 +934,13 @@ const carregarColetores = async () => {
     const params: any = {};
     if (filtroBusca.value.trim()) params.busca = filtroBusca.value.trim();
     if (filtroStatus.value) params.status = filtroStatus.value;
+    if (filtroSetor.value) params.setorId = filtroSetor.value;
     const { data } = await api.get('/coletores', { params });
     coletores.value = data.dados || [];
   } catch (err) {
     console.error('Erro ao listar coletores:', err);
   } finally {
     loading.value = false;
-  }
-};
-
-const abrirModalNovoColetor = () => {
-  novoColetor.value = { patrimonio: '', marca: '', modelo: '', numeroSerie: '' };
-  modalNovoColetorAberto.value = true;
-};
-
-const salvarNovoColetor = async () => {
-  try {
-    await api.post('/coletores', novoColetor.value);
-    modalNovoColetorAberto.value = false;
-    exibirAlerta(`Coletor ${novoColetor.value.patrimonio} cadastrado com sucesso!`, 'sucesso');
-    await carregarColetores();
-  } catch (err: any) {
-    exibirAlerta(err.response?.data?.mensagem || 'Erro ao cadastrar coletor.', 'erro');
   }
 };
 
@@ -922,7 +1128,19 @@ const inativarColetor = async (coletor: any) => {
   }
 };
 
+const reativarColetor = async (coletor: any) => {
+  if (!confirm(`Deseja realmente reativar o coletor patrimônio ${coletor.patrimonio}? Ele voltará ao status DISPONÍVEL.`)) return;
+  try {
+    await api.post(`/coletores/${coletor.id}/reativar`);
+    exibirAlerta(`Coletor ${coletor.patrimonio} reativado e disponível para uso!`, 'sucesso');
+    await carregarColetores();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao reativar coletor.', 'erro');
+  }
+};
+
 onMounted(() => {
   carregarColetores();
+  carregarSetores();
 });
 </script>

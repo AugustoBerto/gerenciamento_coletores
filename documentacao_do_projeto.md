@@ -20,7 +20,8 @@ Substituir controles manuais (planilhas e cadernos físicos) por uma solução w
 ## 2. Escopo e Regras de Negócio Fundamentais
 
 ### 2.1 Identificação dos Ativos e Pessoas
-- **Coletores de Dados:** Cada coletor possui um patrimônio físico obrigatório de **exatamente 7 dígitos numéricos** (`patrimonio ~ '^[0-9]{7}$'`).
+- **Coletores de Dados:** Cada coletor possui um patrimônio físico obrigatório de **exatamente 7 dígitos numéricos** (`patrimonio ~ '^[0-9]{7}$'`), com vínculo opcional a um setor de localização fabril. Tanto administradores quanto técnicos de TI podem inativar e reativar equipamentos.
+- **Setores de Localização:** Gestão descentralizada de áreas da fábrica (ex: Expedição, Almoxarifado Central, Montagem) para organização e rastreamento visual dos coletores no inventário e no check-out.
 - **Colaboradores:** Identificados por meio da leitura do código de barras presente no crachá funcional (14 dígitos corporativos, matrícula de 7 dígitos ou RFID).
 - **Operadores do Sistema:** 
   - **Operador (`OPERADOR`):** Usuário autenticado na whitelist corporativa; realiza retiradas e devoluções; solicita manutenção de aparelhos com defeito e OS.

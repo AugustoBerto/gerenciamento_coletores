@@ -31,10 +31,10 @@ A aplicação opera através do **Dass API Gateway** (porta `2399`), autentica o
 * **RF07 - Painel de Custódias em Tempo Real:** Exibir listagem dinâmica de coletores atualmente em uso, com dados de quem retirou (nome e setor corporativo), horário de saída, tempo decorrido e indicação visual de SLA.
 
 ### 3.2 Módulo de Inventário & Manutenção
-* **RF08 - Cadastro e Edição de Coletores:** Permitir criar, editar, listar e inativar coletores com campos: patrimônio (7 dígitos), número de série, marca, modelo e status.
-* **RF09 - Gestão de Status de Coletores:** Controlar estados `DISPONIVEL`, `EM_USO`, `MANUTENCAO` e `INATIVO`.
+* **RF08 - Cadastro, Edição, Inativação e Reativação de Coletores:** Permitir criar, editar, listar, inativar e reativar coletores com campos: patrimônio (7 dígitos), número de série, marca, modelo, setor de localização e status.
+* **RF09 - Gestão de Status de Coletores:** Controlar estados `DISPONIVEL`, `EM_USO`, `MANUTENCAO` e `INATIVO`. Tanto administradores quanto técnicos de TI podem inativar e reativar equipamentos.
 * **RF10 - Solicitação de Manutenção pelo Operador:** Permitir que operadores de almoxarifado solicitem manutenção de aparelhos em estoque (`DISPONIVEL`), descrevendo o defeito encontrado.
-* **RF11 - Gestão Técnica de Manutenção (Exclusivo TI/ADMIN):** Somente usuários com perfil `TI` ou `ADMIN` têm permissão para dar entrada técnica direta com diagnóstico e baixa/conclusão de reparo preenchendo obrigatoriamente a solução técnica realizada.
+* **RF11 - Gestão Técnica de Manutenção (Exclusivo TI):** Somente usuários com perfil `TI` têm permissão para dar entrada técnica direta com diagnóstico e baixa/conclusão de reparo preenchendo obrigatoriamente a solução técnica realizada.
 * **RF12 - Check-out e Check-in Manual Administrativo:** Disponibilizar na tela de Inventário botões para que administradores realizem empréstimos e devoluções manuais de emergência sem passar pelo leitor de código de barras.
 
 ### 3.3 Módulo de Colaboradores e Bloqueios
@@ -46,10 +46,11 @@ A aplicação opera através do **Dass API Gateway** (porta `2399`), autentica o
 * **RF16 - Relatório de Violação de SLA:** Listagem e métricas de turnos/colaboradores com ocorrências de tempo de uso excedido.
 * **RF17 - Rastreabilidade de Operadores:** Identificação clara de qual operador realizou a entrega (`operador_saida_id`) e qual recebeu a devolução (`operador_retorno_id`).
 
-### 3.5 Módulo de Configurações & Gestão de Usuários
+### 3.5 Módulo de Configurações, Setores & Gestão de Usuários
 * **RF18 - Parametrização de SLA Global (Exclusivo ADMIN):** Configurar o limite padrão de permanência contínua de um coletor em minutos (ex: 480 minutos) e gatilho do alerta amarelo preventivo (ex: 80%).
 * **RF19 - Gestão de Operadores Autorizados (Whitelist):** Permitir que usuários com perfil `TI` e `ADMIN` listem, cadastrem, ativem e inativem operadores autorizados no sistema.
 * **RF20 - Consulta Prévia de Dados Corporativos:** Permitir consultar a base corporativa por usuário ou matrícula para facilitar o pré-preenchimento ao cadastrar um novo operador.
+* **RF21 - Gestão de Setores de Localização (TI e ADMIN):** Permitir cadastrar, editar, ativar e inativar setores operacionais da fábrica para vinculação e rastreamento físico dos coletores.
 
 ---
 
@@ -138,3 +139,14 @@ A aplicação opera através do **Dass API Gateway** (porta `2399`), autentica o
 * **Formato Estrito:** A OS deve ser composta de **exatamente 7 dígitos numéricos** (`^[0-9]{7}$`).
 * O número da OS é persistido na tabela `gestao_coletores.coletores` (para identificação imediata na lista de inventário) e no log de auditoria permanente `gestao_coletores.historico_manutencoes`.
 * Quando o reparo é concluído pela TI (`concluir-manutencao`), o campo `numero_os` no coletor é limpo, mantendo-se preservado no histórico de manutenções.
+
+### RN14 - Setores de Localização dos Coletores
+* Para facilitar a organização física e rastreamento em áreas da fábrica, os coletores podem ser vinculados a setores previamente cadastrados.
+* O cadastro e edição de setores é permitido a usuários com papel `ADMIN` ou `TI`.
+* Cada coletor pode pertencer a um setor (`setor_id`) ou estar com alocação geral (`NULL`).
+* Na listagem de inventário e no grid de coletores disponíveis para retirada, o setor é destacado em badge visual, e a busca permite filtrar diretamente por setor.
+
+### RN15 - Inativação e Reativação de Coletores
+* Tanto usuários com papel `ADMIN` quanto `TI` podem inativar coletores fora de uso (`INATIVO`).
+* Não é permitido inativar coletores que estejam em uso ativo (`EM_USO`).
+* Coletores com status `INATIVO` podem ser reativados a qualquer momento por usuários `ADMIN` ou `TI`, retornando imediatamente ao status `DISPONIVEL` e aptos para retirada.

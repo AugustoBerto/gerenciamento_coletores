@@ -211,10 +211,10 @@ O módulo suporta autenticação híbrida:
 
 ## 5. Coletores e Inventário (`/coletores`)
 
-* `GET /coletores`: Lista coletores com filtros (`status`, busca por texto, paginação).
-* `GET /coletores/:id`: Detalhes de um coletor e seu histórico de manutenções.
-* `POST /coletores`: Cadastro de novo coletor (Requer perfil `TI` ou `ADMIN`).
-* `PUT /coletores/:id`: Edição de informações do coletor (Requer perfil `TI` ou `ADMIN`).
+* `GET /coletores`: Lista coletores com filtros (`status`, `setorId`, busca por texto, paginação).
+* `GET /coletores/:id`: Detalhes de um coletor, seu setor vinculado e histórico de manutenções.
+* `POST /coletores`: Cadastro de novo coletor (`patrimonio`, `marca`, `modelo`, `numeroSerie`, `setorId`) (Requer perfil `TI` ou `ADMIN`).
+* `PUT /coletores/:id`: Edição de informações do coletor (`marca`, `modelo`, `numeroSerie`, `setorId`) (Requer perfil `TI` ou `ADMIN`).
 * `POST /coletores/:id/solicitar-manutencao`:
   - **Permissão:** Todos os usuários autenticados (`OPERADOR`, `ADMIN`, `TI`).
   - **Body:** `{ "motivo": "Touch screen falhando", "numeroOs": "1049283" }` *(Campos obrigatórios, OS de exatamente 7 dígitos numéricos)*
@@ -226,7 +226,10 @@ O módulo suporta autenticação híbrida:
   - **Permissão:** Exclusivo perfil técnico `TI` (`requireStrictTI`). Administradores e Operadores não têm acesso.
   - **Body:** `{ "solucao": "Substituição do display touch e recalibração" }`
   - Fecha a manutenção, registra data de conclusão e libera o coletor para `DISPONIVEL` (limpando o `numero_os` ativo no coletor).
-* `DELETE /coletores/:id`: Inativação lógica do coletor (Requer `ADMIN`).
+* `POST /coletores/:id/reativar`:
+  - **Permissão:** Perfil `TI` ou `ADMIN` (`requireTI`).
+  - Reativa coletor inativo (`status = 'INATIVO'`), restaurando seu estado para `DISPONIVEL`.
+* `DELETE /coletores/:id`: Inativação lógica do coletor (Requer `TI` ou `ADMIN`).
 
 ---
 
@@ -242,7 +245,7 @@ O módulo suporta autenticação híbrida:
 
 ---
 
-## 7. Configurações Globais & Gestão de Operadores (`/configuracoes`)
+## 7. Configurações Globais, Usuários & Setores (`/configuracoes`)
 
 * `GET /configuracoes`: Retorna os limites configurados de SLA (`LIMITE_USO_MINUTOS`, etc.).
 * `PUT /configuracoes`: Atualiza os parâmetros globais de SLA (Exclusivo `ADMIN`).
@@ -254,3 +257,12 @@ O módulo suporta autenticação híbrida:
 * `PATCH /configuracoes/usuarios/:id`:
   - Altera status (`ativo`) ou papel de um operador.
   - **Restrição de Papel:** Usuários com perfil `TI` não podem alterar contas de `ADMIN` nem de outros usuários `TI`. Administradores não podem desativar a si mesmos nem remover o último admin ativo.
+* `GET /configuracoes/setores`:
+  - Lista todos os setores de localização da fábrica (suporta `?somenteAtivos=true`).
+  - Disponível para todos os usuários autenticados (usado em filtros e formulários de coletores).
+* `POST /configuracoes/setores`:
+  - Cadastra novo setor (`nome`, `descricao`) (Requer `TI` ou `ADMIN`).
+* `PUT /configuracoes/setores/:id`:
+  - Atualiza nome, descrição ou status de um setor (Requer `TI` ou `ADMIN`).
+* `PATCH /configuracoes/setores/:id/status`:
+  - Alterna o status ativo/inativo de um setor (Requer `TI` ou `ADMIN`).

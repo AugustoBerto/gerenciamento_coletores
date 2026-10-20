@@ -15,6 +15,16 @@ CREATE TABLE IF NOT EXISTS gestao_coletores.operadores (
     atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Tabela de Setores Operacionais
+CREATE TABLE IF NOT EXISTS gestao_coletores.setores (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nome VARCHAR(80) NOT NULL UNIQUE,
+    descricao VARCHAR(255),
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Tabela de Coletores
 CREATE TABLE IF NOT EXISTS gestao_coletores.coletores (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -22,6 +32,7 @@ CREATE TABLE IF NOT EXISTS gestao_coletores.coletores (
     numero_serie VARCHAR(60),
     marca VARCHAR(50) NOT NULL,
     modelo VARCHAR(50) NOT NULL,
+    setor_id UUID REFERENCES gestao_coletores.setores(id) ON DELETE SET NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'DISPONIVEL' CHECK (status IN ('DISPONIVEL', 'EM_USO', 'MANUTENCAO', 'INATIVO')),
     motivo_manutencao TEXT,
     numero_os VARCHAR(50),
@@ -103,3 +114,11 @@ VALUES
     ('LIMITE_USO_MINUTOS', '480', 'Limite máximo de uso contínuo do coletor em minutos (8h)'),
     ('ALERTA_AMARELO_PERCENTUAL', '80', 'Percentual do tempo de uso para acionar alerta preventivo')
 ON CONFLICT (chave) DO NOTHING;
+
+INSERT INTO gestao_coletores.setores (nome, descricao) VALUES
+    ('Almoxarifado Central', 'Estoque principal e custódia de equipamentos'),
+    ('Expedição', 'Área de conferência e despacho de mercadorias'),
+    ('Recebimento', 'Triagem de matéria-prima e insumos'),
+    ('Linha de Montagem', 'Operação de montagem e esteiras'),
+    ('Logística Interna', 'Movimentação e abastecimento de células')
+ON CONFLICT (nome) DO NOTHING;

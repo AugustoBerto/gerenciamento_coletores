@@ -14,6 +14,7 @@ router.put('/:id', requireTI, controller.atualizar);
 router.post('/:id/solicitar-manutencao', controller.solicitarManutencao);
 router.post('/:id/enviar-manutencao', requireStrictTI, controller.enviarManutencao);
 router.post('/:id/concluir-manutencao', requireStrictTI, controller.concluirManutencao);
-router.delete('/:id', requireAdmin, controller.inativar);
+router.post('/:id/reativar', requireTI, controller.reativar);
+router.delete('/:id', requireTI, controller.inativar);
 
 export default router;

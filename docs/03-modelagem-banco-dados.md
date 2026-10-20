@@ -18,12 +18,22 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
 
 ```mermaid
 erDiagram
+    SETORES ||--o{ COLETORES : "aloca"
     OPERADORES ||--o{ MOVIMENTACOES : "registra saida"
     OPERADORES ||--o{ MOVIMENTACOES : "registra retorno"
     COLETORES ||--o{ MOVIMENTACOES : "e movimentado"
     COLETORES ||--o{ HISTORICO_MANUTENCOES : "possui"
     OPERADORES ||--o{ HISTORICO_MANUTENCOES : "registra"
     BLOQUEIOS_COLABORADORES }o--|| OPERADORES : "bloqueado por"
+
+    SETORES {
+        uuid id PK
+        varchar nome UK
+        varchar descricao "nullable"
+        boolean ativo
+        timestamptz criado_em
+        timestamptz atualizado_em
+    }
 
     OPERADORES {
         uuid id PK
@@ -44,6 +54,7 @@ erDiagram
         varchar numero_serie
         varchar marca
         varchar modelo
+        uuid setor_id FK "nullable"
         varchar status "DISPONIVEL | EM_USO | MANUTENCAO | INATIVO"
         text motivo_manutencao
         varchar numero_os "nullable (OS ERP)"
@@ -209,13 +220,24 @@ CREATE TABLE IF NOT EXISTS gestao_coletores.operadores (
     atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
--- 3. Tabela de Coletores
+-- 3. Tabela de Setores de Localização Fabril
+CREATE TABLE IF NOT EXISTS gestao_coletores.setores (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    nome VARCHAR(80) NOT NULL UNIQUE,
+    descricao VARCHAR(255),
+    ativo BOOLEAN NOT NULL DEFAULT TRUE,
+    criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    atualizado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 4. Tabela de Coletores
 CREATE TABLE IF NOT EXISTS gestao_coletores.coletores (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     patrimonio VARCHAR(7) NOT NULL UNIQUE,
     numero_serie VARCHAR(60),
     marca VARCHAR(50) NOT NULL,
     modelo VARCHAR(50) NOT NULL,
+    setor_id UUID REFERENCES gestao_coletores.setores(id) ON DELETE SET NULL,
     status VARCHAR(20) NOT NULL DEFAULT 'DISPONIVEL' CHECK (status IN ('DISPONIVEL', 'EM_USO', 'MANUTENCAO', 'INATIVO')),
     motivo_manutencao TEXT,
     numero_os VARCHAR(50),
@@ -225,7 +247,7 @@ CREATE TABLE IF NOT EXISTS gestao_coletores.coletores (
     CONSTRAINT chk_patrimonio_7_digitos CHECK (patrimonio ~ '^[0-9]{7}$')
 );
 
--- 4. Tabela de Movimentações (Custódias)
+-- 5. Tabela de Movimentações (Custódias)
 CREATE TABLE IF NOT EXISTS gestao_coletores.movimentacoes (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     coletor_id UUID NOT NULL REFERENCES gestao_coletores.coletores(id) ON DELETE RESTRICT,

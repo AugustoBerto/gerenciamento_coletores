@@ -1,5 +1,7 @@
+import { ILike } from 'typeorm';
 import { AppDataSource } from '../../config/database';
 import { Operador } from '../../database/entities/Operador';
+import { Setor } from '../../database/entities/Setor';
 import { AppError } from '../../shared/errors/AppError';
 
 export interface NovoUsuarioDTO {
@@ -218,5 +220,104 @@ export class ConfiguracoesService {
     }
 
     return operadorRepo.save(operador);
+  }
+
+  // --- Gestão de Setores ---
+  public static async listarSetores(somenteAtivos: boolean = false): Promise<Setor[]> {
+    const setorRepo = AppDataSource.getRepository(Setor);
+    const where = somenteAtivos ? { ativo: true } : {};
+    return setorRepo.find({
+      where,
+      order: { nome: 'ASC' },
+    });
+  }
+
+  public static async cadastrarSetor(dto: { nome: string; descricao?: string | null }): Promise<Setor> {
+    const nome = String(dto.nome || '').trim();
+    if (!nome) {
+      throw new AppError('O nome do setor é obrigatório.', 400, 'NOME_SETOR_OBRIGATORIO');
+    }
+    if (nome.length > 80) {
+      throw new AppError('O nome do setor não pode exceder 80 caracteres.', 400, 'NOME_SETOR_MUITO_LONGO');
+    }
+
+    const setorRepo = AppDataSource.getRepository(Setor);
+    const existente = await setorRepo.findOne({
+      where: { nome: ILike(nome) },
+    });
+
+    if (existente) {
+      if (!existente.ativo) {
+        // Se já existia mas estava inativo, reativa e atualiza a descrição se fornecida
+        existente.ativo = true;
+        if (dto.descricao !== undefined) {
+          existente.descricao = dto.descricao ? String(dto.descricao).trim() : null;
+        }
+        return setorRepo.save(existente);
+      }
+      throw new AppError('Já existe um setor ativo com este nome.', 409, 'SETOR_DUPLICADO');
+    }
+
+    const novo = setorRepo.create({
+      nome,
+      descricao: dto.descricao ? String(dto.descricao).trim() : null,
+      ativo: true,
+    });
+
+    return setorRepo.save(novo);
+  }
+
+  public static async atualizarSetor(
+    id: string,
+    dto: { nome?: string; descricao?: string | null; ativo?: boolean }
+  ): Promise<Setor> {
+    const setorRepo = AppDataSource.getRepository(Setor);
+    const setor = await setorRepo.findOne({ where: { id } });
+
+    if (!setor) {
+      throw new AppError('Setor não encontrado.', 404, 'SETOR_NAO_ENCONTRADO');
+    }
+
+    if (dto.nome !== undefined) {
+      const nomeTratado = String(dto.nome || '').trim();
+      if (!nomeTratado) {
+        throw new AppError('O nome do setor não pode ficar em branco.', 400, 'NOME_SETOR_OBRIGATORIO');
+      }
+      if (nomeTratado.length > 80) {
+        throw new AppError('O nome do setor não pode exceder 80 caracteres.', 400, 'NOME_SETOR_MUITO_LONGO');
+      }
+
+      // Verificar se outro setor já tem o mesmo nome
+      const outro = await setorRepo.findOne({
+        where: { nome: ILike(nomeTratado) },
+      });
+      if (outro && outro.id !== id) {
+        throw new AppError('Já existe outro setor com este nome.', 409, 'SETOR_DUPLICADO');
+      }
+
+      setor.nome = nomeTratado;
+    }
+
+    if (dto.descricao !== undefined) {
+      setor.descricao = dto.descricao ? String(dto.descricao).trim() : null;
+    }
+
+    if (dto.ativo !== undefined) {
+      setor.ativo = Boolean(dto.ativo);
+    }
+
+    return setorRepo.save(setor);
+  }
+
+  public static async toggleStatusSetor(id: string): Promise<Setor> {
+    const setorRepo = AppDataSource.getRepository(Setor);
+    const setor = await setorRepo.findOne({ where: { id } });
+
+    if (!setor) {
+      throw new AppError('Setor não encontrado.', 404, 'SETOR_NAO_ENCONTRADO');
+    }
+
+    setor.ativo = !setor.ativo;
+    return setorRepo.save(setor);
   }
 }

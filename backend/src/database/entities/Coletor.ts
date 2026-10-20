@@ -5,9 +5,12 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToMany,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { Movimentacao } from './Movimentacao';
 import { HistoricoManutencao } from './HistoricoManutencao';
+import { Setor } from './Setor';
 
 export type StatusColetor = 'DISPONIVEL' | 'EM_USO' | 'MANUTENCAO' | 'INATIVO';
 
@@ -27,6 +30,13 @@ export class Coletor {
 
   @Column({ type: 'varchar', length: 50 })
   modelo!: string;
+
+  @Column({ name: 'setor_id', type: 'uuid', nullable: true })
+  setorId!: string | null;
+
+  @ManyToOne(() => Setor, (s) => s.coletores, { eager: true, nullable: true })
+  @JoinColumn({ name: 'setor_id' })
+  setor!: Setor | null;
 
   @Column({
     type: 'varchar',

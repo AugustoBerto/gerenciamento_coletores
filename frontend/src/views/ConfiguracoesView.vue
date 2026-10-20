@@ -6,7 +6,7 @@
         <h2 class="text-lg sm:text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
           Configurações & Gestão de Acessos
         </h2>
-        <p class="text-xs text-gray-500 mt-1">Gerenciamento da whitelist de operadores, papéis e parâmetros globais de SLA</p>
+        <p class="text-xs text-gray-500 mt-1">Gerenciamento da whitelist de operadores, setores de localização e parâmetros de SLA</p>
       </div>
 
       <div class="flex items-center gap-2 w-full sm:w-auto">
@@ -16,6 +16,13 @@
           class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-[#002B49] hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition"
         >
           + Cadastrar Novo Operador
+        </button>
+        <button
+          v-else-if="abaAtiva === 'setores' && authStore.canManageUsers"
+          @click="abrirModalNovoSetor"
+          class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-[#002B49] hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition"
+        >
+          + Novo Setor
         </button>
       </div>
     </div>
@@ -28,6 +35,14 @@
         :class="abaAtiva === 'usuarios' ? 'border-[#002B49] text-[#002B49]' : 'border-transparent text-gray-500 hover:text-gray-800'"
       >
         Operadores Autorizados (Whitelist)
+      </button>
+      <button
+        v-if="authStore.canManageUsers"
+        @click="trocarParaSetores"
+        class="pb-3 px-4 text-xs font-bold transition-colors border-b-2"
+        :class="abaAtiva === 'setores' ? 'border-[#002B49] text-[#002B49]' : 'border-transparent text-gray-500 hover:text-gray-800'"
+      >
+        Setores de Localização
       </button>
       <button
         v-if="authStore.isAdmin"
@@ -205,7 +220,123 @@
       </div>
     </div>
 
-    <!-- ABA 2: PARÂMETROS DE SLA -->
+    <!-- ABA 2: GESTÃO DE SETORES DE LOCALIZAÇÃO -->
+    <div v-if="abaAtiva === 'setores'" class="space-y-4">
+      <!-- Barra de Busca -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+        <div class="relative">
+          <input
+            v-model="filtroSetorBusca"
+            type="text"
+            placeholder="Buscar setor por nome ou descrição..."
+            class="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#002B49]"
+          />
+          <div class="absolute left-3 top-2.5 text-gray-400">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div v-if="loadingSetores" class="bg-white p-12 rounded-2xl shadow-sm border border-gray-200 text-center text-gray-400 text-xs">
+        Carregando setores de localização...
+      </div>
+
+      <!-- Tabela Desktop -->
+      <div v-else-if="setoresFiltrados.length > 0" class="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-gray-600">
+            <thead class="bg-gray-100 text-gray-700 uppercase font-black text-[10px] tracking-wider">
+              <tr>
+                <th class="py-3 px-4">Nome do Setor</th>
+                <th class="py-3 px-4">Descrição / Observações</th>
+                <th class="py-3 px-4">Status</th>
+                <th class="py-3 px-4 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr v-for="s in setoresFiltrados" :key="s.id" class="hover:bg-gray-50/80 transition">
+                <td class="py-3.5 px-4 font-bold text-gray-900">
+                  {{ s.nome }}
+                </td>
+                <td class="py-3.5 px-4 text-gray-600">
+                  {{ s.descricao || '-' }}
+                </td>
+                <td class="py-3.5 px-4">
+                  <span
+                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase"
+                    :class="s.ativo ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'"
+                  >
+                    {{ s.ativo ? 'Ativo' : 'Inativo' }}
+                  </span>
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <div class="inline-flex items-center gap-2 justify-end">
+                    <button
+                      @click="abrirModalEditarSetor(s)"
+                      class="px-2.5 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded transition"
+                    >
+                      Editar
+                    </button>
+                    <button
+                      @click="alternarStatusSetor(s)"
+                      class="px-2.5 py-1 text-xs font-bold rounded transition"
+                      :class="s.ativo ? 'text-red-600 hover:bg-red-50' : 'text-emerald-700 hover:bg-emerald-50'"
+                    >
+                      {{ s.ativo ? 'Inativar' : 'Reativar' }}
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Cards Mobile/Tablet -->
+      <div v-else-if="setoresFiltrados.length > 0" class="grid grid-cols-1 sm:grid-cols-2 gap-3.5 md:hidden">
+        <div
+          v-for="s in setoresFiltrados"
+          :key="s.id"
+          class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 space-y-3"
+        >
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="font-bold text-gray-900 text-sm">{{ s.nome }}</div>
+              <div class="text-xs text-gray-500 mt-0.5">{{ s.descricao || 'Sem descrição' }}</div>
+            </div>
+            <span
+              class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase"
+              :class="s.ativo ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'"
+            >
+              {{ s.ativo ? 'Ativo' : 'Inativo' }}
+            </span>
+          </div>
+
+          <div class="pt-2 border-t border-gray-100 flex justify-end gap-2 items-center">
+            <button
+              @click="abrirModalEditarSetor(s)"
+              class="px-3 py-1 text-xs font-bold border rounded-lg text-gray-700 bg-gray-50"
+            >
+              Editar
+            </button>
+            <button
+              @click="alternarStatusSetor(s)"
+              class="px-3 py-1 text-xs font-bold rounded-lg"
+              :class="s.ativo ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
+            >
+              {{ s.ativo ? 'Inativar' : 'Reativar' }}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div v-else class="bg-white p-12 rounded-2xl shadow-sm border border-gray-200 text-center text-gray-500 text-xs">
+        Nenhum setor encontrado com os termos de busca informados.
+      </div>
+    </div>
+
+    <!-- ABA 3: PARÂMETROS DE SLA -->
     <div v-if="abaAtiva === 'sla'" class="bg-white p-6 rounded-2xl shadow-sm border border-gray-200 max-w-xl space-y-5">
       <h3 class="text-sm font-extrabold text-gray-900 border-b pb-2 uppercase tracking-wider">
         Configurações de SLA e Tempos Limites
@@ -352,6 +483,76 @@
         </form>
       </div>
     </div>
+
+    <!-- MODAL: CADASTRAR / EDITAR SETOR -->
+    <div
+      v-if="modalSetorAberto"
+      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+    >
+      <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
+        <div class="flex justify-between items-start border-b pb-3">
+          <div>
+            <h3 class="text-base font-extrabold text-gray-900">
+              {{ setorEmEdicao ? 'Editar Setor de Localização' : 'Novo Setor de Localização' }}
+            </h3>
+            <p class="text-xs text-gray-500">Defina a área fabril para rastreabilidade dos coletores</p>
+          </div>
+          <button @click="modalSetorAberto = false" class="text-gray-400 hover:text-gray-700 text-lg leading-none">
+            &times;
+          </button>
+        </div>
+
+        <div v-if="erroModalSetor" class="p-3 rounded-lg bg-red-50 border border-red-300 text-red-700 text-xs font-bold">
+          {{ erroModalSetor }}
+        </div>
+
+        <form @submit.prevent="confirmarSalvarSetor" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+              Nome do Setor*
+            </label>
+            <input
+              v-model="formSetor.nome"
+              type="text"
+              required
+              maxlength="80"
+              placeholder="Ex: Expedição, Linha de Montagem, Almoxarifado"
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+            />
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+              Descrição / Finalidade (Opcional)
+            </label>
+            <textarea
+              v-model="formSetor.descricao"
+              rows="3"
+              maxlength="255"
+              placeholder="Ex: Área de conferência, expedição ou carregamento"
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+            ></textarea>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-3 border-t">
+            <button
+              type="button"
+              @click="modalSetorAberto = false"
+              class="px-4 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              :disabled="loadingSalvarSetor || !formSetor.nome.trim()"
+              class="px-5 py-2 bg-[#002B49] hover:bg-slate-800 text-white rounded-xl text-xs font-bold disabled:opacity-40 transition shadow-sm"
+            >
+              {{ loadingSalvarSetor ? 'Salvando...' : 'Salvar Setor' }}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -362,7 +563,7 @@ import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
 
-const abaAtiva = ref<'usuarios' | 'sla'>('usuarios');
+const abaAtiva = ref<'usuarios' | 'setores' | 'sla'>('usuarios');
 const usuarios = ref<any[]>([]);
 const loadingUsuarios = ref(false);
 const filtroBusca = ref('');
@@ -411,6 +612,103 @@ const formSla = ref({
   alertaAmareloPercentual: 80,
 });
 const loadingSalvandoSla = ref(false);
+
+// Gestão de Setores
+const setores = ref<any[]>([]);
+const loadingSetores = ref(false);
+const filtroSetorBusca = ref('');
+const modalSetorAberto = ref(false);
+const setorEmEdicao = ref<any>(null);
+const formSetor = ref({ nome: '', descricao: '' });
+const loadingSalvarSetor = ref(false);
+const erroModalSetor = ref('');
+
+const setoresFiltrados = computed(() => {
+  const t = filtroSetorBusca.value.trim().toLowerCase();
+  if (!t) return setores.value;
+  return setores.value.filter(
+    (s) =>
+      s.nome.toLowerCase().includes(t) ||
+      (s.descricao && s.descricao.toLowerCase().includes(t))
+  );
+});
+
+const carregarSetores = async () => {
+  loadingSetores.value = true;
+  try {
+    const { data } = await api.get('/configuracoes/setores');
+    setores.value = data.dados || [];
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao carregar setores.', 'erro');
+  } finally {
+    loadingSetores.value = false;
+  }
+};
+
+const trocarParaSetores = () => {
+  abaAtiva.value = 'setores';
+  if (setores.value.length === 0) {
+    carregarSetores();
+  }
+};
+
+const abrirModalNovoSetor = () => {
+  setorEmEdicao.value = null;
+  formSetor.value = { nome: '', descricao: '' };
+  erroModalSetor.value = '';
+  modalSetorAberto.value = true;
+};
+
+const abrirModalEditarSetor = (s: any) => {
+  setorEmEdicao.value = s;
+  formSetor.value = { nome: s.nome, descricao: s.descricao || '' };
+  erroModalSetor.value = '';
+  modalSetorAberto.value = true;
+};
+
+const confirmarSalvarSetor = async () => {
+  const nome = formSetor.value.nome.trim();
+  if (!nome) return;
+
+  erroModalSetor.value = '';
+  loadingSalvarSetor.value = true;
+
+  try {
+    if (setorEmEdicao.value) {
+      await api.put(`/configuracoes/setores/${setorEmEdicao.value.id}`, {
+        nome,
+        descricao: formSetor.value.descricao.trim() || null,
+      });
+      exibirAlerta(`Setor "${nome}" atualizado com sucesso!`, 'sucesso');
+    } else {
+      await api.post('/configuracoes/setores', {
+        nome,
+        descricao: formSetor.value.descricao.trim() || null,
+      });
+      exibirAlerta(`Setor "${nome}" cadastrado com sucesso!`, 'sucesso');
+    }
+    modalSetorAberto.value = false;
+    await carregarSetores();
+  } catch (err: any) {
+    erroModalSetor.value = err.response?.data?.mensagem || 'Erro ao salvar setor.';
+  } finally {
+    loadingSalvarSetor.value = false;
+  }
+};
+
+const alternarStatusSetor = async (s: any) => {
+  const novoStatus = !s.ativo;
+  const acao = novoStatus ? 'reativar' : 'inativar';
+  if (!confirm(`Deseja realmente ${acao} o setor "${s.nome}"?`)) return;
+
+  try {
+    await api.patch(`/configuracoes/setores/${s.id}/status`);
+    exibirAlerta(`Setor "${s.nome}" ${novoStatus ? 'reativado' : 'inativado'} com sucesso!`, 'sucesso');
+    await carregarSetores();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao alterar status do setor.', 'erro');
+  }
+};
 
 const usuariosFiltrados = computed(() => {
   const t = filtroBusca.value.trim().toLowerCase();
@@ -550,6 +848,9 @@ const alternarStatus = async (u: any) => {
 
 onMounted(() => {
   carregarUsuarios();
+  if (authStore.canManageUsers) {
+    carregarSetores();
+  }
   if (authStore.isAdmin) {
     carregarConfiguracoesSla();
   }

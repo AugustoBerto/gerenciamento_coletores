@@ -127,4 +127,61 @@ router.patch('/usuarios/:id', requireTI, async (req: Request, res: Response, nex
   }
 });
 
+// --- Gestão de Setores de Localização ---
+router.get('/setores', async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const somenteAtivos = req.query.somenteAtivos === 'true';
+    const setores = await ConfiguracoesService.listarSetores(somenteAtivos);
+    res.status(200).json({
+      sucesso: true,
+      dados: setores,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.post('/setores', requireTI, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { nome, descricao } = req.body;
+    const novo = await ConfiguracoesService.cadastrarSetor({ nome, descricao });
+    res.status(201).json({
+      sucesso: true,
+      mensagem: `Setor "${novo.nome}" cadastrado com sucesso.`,
+      dados: novo,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.put('/setores/:id', requireTI, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const { nome, descricao, ativo } = req.body;
+    const atualizado = await ConfiguracoesService.atualizarSetor(id, { nome, descricao, ativo });
+    res.status(200).json({
+      sucesso: true,
+      mensagem: `Setor "${atualizado.nome}" atualizado com sucesso.`,
+      dados: atualizado,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.patch('/setores/:id/status', requireTI, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const atualizado = await ConfiguracoesService.toggleStatusSetor(id);
+    res.status(200).json({
+      sucesso: true,
+      mensagem: `Status do setor "${atualizado.nome}" alterado para ${atualizado.ativo ? 'ativo' : 'inativo'}.`,
+      dados: atualizado,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
 export default router;

@@ -5,10 +5,11 @@ import { StatusColetor } from '../../database/entities/Coletor';
 export class ColetoresController {
   public async listar(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { busca, status, page, limit } = req.query;
+      const { busca, status, setorId, page, limit } = req.query;
       const resultado = await ColetoresService.listar({
         busca: busca ? String(busca) : undefined,
         status: status ? (String(status) as StatusColetor) : undefined,
+        setorId: setorId ? String(setorId) : undefined,
         page: page ? Number(page) : undefined,
         limit: limit ? Number(limit) : undefined,
       });
@@ -42,12 +43,13 @@ export class ColetoresController {
 
   public async criar(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { patrimonio, numeroSerie, marca, modelo } = req.body;
+      const { patrimonio, numeroSerie, marca, modelo, setorId } = req.body;
       const coletor = await ColetoresService.criar({
         patrimonio,
         numeroSerie,
         marca,
         modelo,
+        setorId: setorId ? String(setorId) : null,
       });
 
       res.status(201).json({
@@ -63,11 +65,12 @@ export class ColetoresController {
   public async atualizar(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const { numeroSerie, marca, modelo } = req.body;
+      const { numeroSerie, marca, modelo, setorId } = req.body;
       const coletor = await ColetoresService.atualizar(id, {
         numeroSerie,
         marca,
         modelo,
+        setorId: setorId !== undefined ? (setorId ? String(setorId) : null) : undefined,
       });
 
       res.status(200).json({
@@ -151,6 +154,20 @@ export class ColetoresController {
       res.status(200).json({
         sucesso: true,
         mensagem: 'Coletor inativado com sucesso.',
+        dados: coletor,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async reativar(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const coletor = await ColetoresService.reativar(id);
+      res.status(200).json({
+        sucesso: true,
+        mensagem: 'Coletor reativado com sucesso.',
         dados: coletor,
       });
     } catch (err) {

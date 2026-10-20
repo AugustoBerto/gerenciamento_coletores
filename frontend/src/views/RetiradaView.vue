@@ -187,8 +187,17 @@
             <div class="text-xs font-semibold text-slate-700 mt-1.5 leading-tight">
               {{ c.marca }} {{ c.modelo }}
             </div>
-            <div class="text-[10px] text-slate-400 font-mono mt-0.5 truncate">
-              {{ c.numeroSerie || 'S/N' }}
+            <div class="flex items-center gap-1.5 mt-1.5">
+              <span
+                v-if="c.setor?.nome"
+                class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200 truncate max-w-full"
+              >
+                {{ c.setor.nome }}
+              </span>
+              <span v-else class="text-[9px] text-slate-400">Geral</span>
+              <span class="text-[9px] text-slate-400 font-mono truncate">
+                {{ c.numeroSerie || 'S/N' }}
+              </span>
             </div>
           </div>
 
@@ -269,7 +278,8 @@ const coletoresFiltrados = computed(() => {
       c.patrimonio.toLowerCase().includes(termo) ||
       c.marca.toLowerCase().includes(termo) ||
       c.modelo.toLowerCase().includes(termo) ||
-      (c.numeroSerie && c.numeroSerie.toLowerCase().includes(termo))
+      (c.numeroSerie && c.numeroSerie.toLowerCase().includes(termo)) ||
+      (c.setor?.nome && c.setor.nome.toLowerCase().includes(termo))
   );
 });
 

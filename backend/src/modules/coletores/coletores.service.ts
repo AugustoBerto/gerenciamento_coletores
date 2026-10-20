@@ -2,24 +2,28 @@ import { AppDataSource } from '../../config/database';
 import { AppError } from '../../shared/errors/AppError';
 import { Coletor, StatusColetor } from '../../database/entities/Coletor';
 import { HistoricoManutencao } from '../../database/entities/HistoricoManutencao';
+import { Setor } from '../../database/entities/Setor';
 
 export interface CriarColetorDTO {
   patrimonio: string;
   numeroSerie?: string | null;
   marca: string;
   modelo: string;
+  setorId?: string | null;
 }
 
 export interface AtualizarColetorDTO {
   numeroSerie?: string | null;
   marca?: string;
   modelo?: string;
+  setorId?: string | null;
 }
 
 export class ColetoresService {
   public static async listar(filtros: {
     busca?: string;
     status?: StatusColetor;
+    setorId?: string;
     page?: number;
     limit?: number;
   }): Promise<{ coletores: Coletor[]; total: number; page: number; totalPages: number }> {
@@ -28,16 +32,20 @@ export class ColetoresService {
     const skip = (page - 1) * limit;
 
     const repo = AppDataSource.getRepository(Coletor);
-    const query = repo.createQueryBuilder('c');
+    const query = repo.createQueryBuilder('c').leftJoinAndSelect('c.setor', 'setor');
 
     if (filtros.status) {
       query.andWhere('c.status = :status', { status: filtros.status });
     }
 
+    if (filtros.setorId) {
+      query.andWhere('c.setor_id = :setorId', { setorId: filtros.setorId });
+    }
+
     if (filtros.busca) {
       const termo = `%${filtros.busca.trim()}%`;
       query.andWhere(
-        '(c.patrimonio ILIKE :termo OR c.numero_serie ILIKE :termo OR c.marca ILIKE :termo OR c.modelo ILIKE :termo)',
+        '(c.patrimonio ILIKE :termo OR c.numero_serie ILIKE :termo OR c.marca ILIKE :termo OR c.modelo ILIKE :termo OR setor.nome ILIKE :termo)',
         { termo }
       );
     }
@@ -60,6 +68,7 @@ export class ColetoresService {
       where: { id },
       relations: {
         historicoManutencoes: { operador: true },
+        setor: true,
       },
     });
 
@@ -82,15 +91,25 @@ export class ColetoresService {
       throw new AppError('Já existe um coletor cadastrado com este patrimônio.', 409, 'PATRIMONIO_DUPLICADO');
     }
 
+    if (dto.setorId) {
+      const setorRepo = AppDataSource.getRepository(Setor);
+      const setor = await setorRepo.findOne({ where: { id: dto.setorId } });
+      if (!setor) {
+        throw new AppError('Setor selecionado não foi encontrado.', 404, 'SETOR_NAO_ENCONTRADO');
+      }
+    }
+
     const coletor = repo.create({
       patrimonio,
       numeroSerie: dto.numeroSerie ? String(dto.numeroSerie).trim() : null,
       marca: String(dto.marca).trim(),
       modelo: String(dto.modelo).trim(),
+      setorId: dto.setorId ? String(dto.setorId) : null,
       status: 'DISPONIVEL',
     });
 
-    return repo.save(coletor);
+    const salvo = await repo.save(coletor);
+    return this.buscarPorId(salvo.id);
   }
 
   public static async atualizar(id: string, dto: AtualizarColetorDTO): Promise<Coletor> {
@@ -106,8 +125,21 @@ export class ColetoresService {
     if (dto.modelo) {
       coletor.modelo = String(dto.modelo).trim();
     }
+    if (dto.setorId !== undefined) {
+      if (dto.setorId) {
+        const setorRepo = AppDataSource.getRepository(Setor);
+        const setor = await setorRepo.findOne({ where: { id: dto.setorId } });
+        if (!setor) {
+          throw new AppError('Setor selecionado não foi encontrado.', 404, 'SETOR_NAO_ENCONTRADO');
+        }
+        coletor.setorId = dto.setorId;
+      } else {
+        coletor.setorId = null;
+      }
+    }
 
-    return repo.save(coletor);
+    await repo.save(coletor);
+    return this.buscarPorId(coletor.id);
   }
 
   public static async enviarManutencao(id: string, motivo: string, operadorId: string, numeroOs: string): Promise<Coletor> {
@@ -210,5 +242,20 @@ export class ColetoresService {
     coletor.status = 'INATIVO';
     const repo = AppDataSource.getRepository(Coletor);
     return repo.save(coletor);
+  }
+
+  public static async reativar(id: string): Promise<Coletor> {
+    const coletor = await this.buscarPorId(id);
+    if (coletor.status !== 'INATIVO') {
+      throw new AppError('Apenas coletores inativos podem ser reativados.', 400, 'STATUS_INVALIDO');
+    }
+
+    coletor.status = 'DISPONIVEL';
+    coletor.motivoManutencao = null;
+    coletor.numeroOs = null;
+    coletor.dataEnvioManutencao = null;
+    const repo = AppDataSource.getRepository(Coletor);
+    await repo.save(coletor);
+    return this.buscarPorId(coletor.id);
   }
 }
