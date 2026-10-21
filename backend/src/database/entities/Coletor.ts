@@ -34,7 +34,7 @@ export class Coletor {
   @Column({ name: 'setor_id', type: 'uuid', nullable: true })
   setorId!: string | null;
 
-  @ManyToOne(() => Setor, (s) => s.coletores, { eager: true, nullable: true })
+  @ManyToOne(() => Setor, (s) => s.coletores, { nullable: true })
   @JoinColumn({ name: 'setor_id' })
   setor!: Setor | null;
 

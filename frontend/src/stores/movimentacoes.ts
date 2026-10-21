@@ -33,6 +33,7 @@ export interface MetricasDashboard {
   inativos: number;
   atrasados: number;
   limiteMinutosSLA: number;
+  slaAtivo?: boolean;
 }
 
 export const useMovimentacoesStore = defineStore('movimentacoes', {

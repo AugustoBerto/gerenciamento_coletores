@@ -25,8 +25,16 @@ router.get('/', async (_req: Request, res: Response, next: NextFunction) => {
 
 router.put('/', requireAdmin, async (req: Request, res: Response, next: NextFunction) => {
   try {
-    const { limiteUsoMinutos, alertaAmareloPercentual } = req.body;
+    const { limiteUsoMinutos, alertaAmareloPercentual, slaAtivo } = req.body;
     const repo = AppDataSource.getRepository(Configuracao);
+
+    if (slaAtivo !== undefined) {
+      await repo.save({
+        chave: 'SLA_ATIVO',
+        valor: String(Boolean(slaAtivo)),
+        descricao: 'Indica se o controle e monitoramento de SLA está ativo',
+      });
+    }
 
     if (limiteUsoMinutos !== undefined) {
       await repo.save({
@@ -178,6 +186,19 @@ router.patch('/setores/:id/status', requireTI, async (req: Request, res: Respons
       sucesso: true,
       mensagem: `Status do setor "${atualizado.nome}" alterado para ${atualizado.ativo ? 'ativo' : 'inativo'}.`,
       dados: atualizado,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/setores/:id', requireTI, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const resultado = await ConfiguracoesService.excluirSetor(id);
+    res.status(200).json({
+      sucesso: true,
+      mensagem: resultado.mensagem,
     });
   } catch (err) {
     next(err);

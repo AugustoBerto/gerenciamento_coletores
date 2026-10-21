@@ -115,33 +115,36 @@
                 <td class="py-3.5 px-4 font-mono text-gray-700">{{ u.usuario }}</td>
                 <td class="py-3.5 px-4 font-mono text-gray-600">{{ u.matricula }}</td>
                 <td class="py-3.5 px-4 text-gray-600">{{ u.cargo || '-' }}</td>
-                <td class="py-3.5 px-4">
-                  <span
-                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase"
-                    :class="corPapelBadge(u.papel)"
-                  >
-                    {{ u.papel }}
-                  </span>
+                <td class="py-3.5 px-4 font-semibold text-slate-700">
+                  {{ u.papel === 'ADMIN' ? 'Administrador' : (u.papel === 'TI' ? 'TI' : 'Operador') }}
                 </td>
                 <td class="py-3.5 px-4">
-                  <span
-                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase"
-                    :class="u.ativo ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'"
-                  >
-                    {{ u.ativo ? 'Ativo' : 'Inativo' }}
-                  </span>
+                  <div class="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                    <span class="w-2 h-2 rounded-full" :class="u.ativo ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+                    <span>{{ u.ativo ? 'Ativo' : 'Inativo' }}</span>
+                  </div>
                 </td>
                 <td class="py-3.5 px-4 text-right">
                   <div class="inline-flex items-center gap-2 justify-end">
                     <template v-if="u.usuario !== 'suporte.ti'">
-                      <!-- Alternar Papel (Exclusivo Administrador Global) -->
+                      <!-- Alternar Papel para ADMIN (Exclusivo Administrador Global) -->
                       <button
-                        v-if="authStore.isAdmin && u.id !== authStore.user?.id"
+                        v-if="authStore.isAdmin && u.id !== authStore.user?.id && u.papel !== 'TI'"
                         @click="alternarPapel(u)"
                         class="px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded transition"
                         :title="u.papel === 'ADMIN' ? 'Rebaixar para Operador' : 'Promover a Administrador'"
                       >
                         {{ u.papel === 'ADMIN' ? 'Mudar p/ Operador' : 'Tornar Admin' }}
+                      </button>
+
+                      <!-- Alternar Papel para TI (Exclusivo equipe de TI) -->
+                      <button
+                        v-if="authStore.isTI && u.id !== authStore.user?.id && u.papel !== 'ADMIN'"
+                        @click="alternarPapelTI(u)"
+                        class="px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded transition"
+                        :title="u.papel === 'TI' ? 'Rebaixar para Operador' : 'Promover a TI'"
+                      >
+                        {{ u.papel === 'TI' ? 'Mudar p/ Operador' : 'Tornar TI' }}
                       </button>
 
                       <!-- Alternar Status Ativo/Inativo -->
@@ -177,31 +180,33 @@
               </div>
               <div class="text-xs text-gray-500 font-mono">@{{ u.usuario }} &bull; Mat: {{ u.matricula }}</div>
             </div>
-            <span
-              class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase"
-              :class="corPapelBadge(u.papel)"
-            >
-              {{ u.papel }}
+            <span class="text-xs font-semibold text-slate-700">
+              {{ u.papel === 'ADMIN' ? 'Administrador' : (u.papel === 'TI' ? 'TI' : 'Operador') }}
             </span>
           </div>
 
           <div class="text-xs text-gray-600 flex justify-between items-center">
             <span>{{ u.cargo || 'Operador' }}</span>
-            <span
-              class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase"
-              :class="u.ativo ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'"
-            >
-              {{ u.ativo ? 'Ativo' : 'Inativo' }}
-            </span>
+            <div class="inline-flex items-center gap-1.5 font-medium text-slate-700 text-xs">
+              <span class="w-2 h-2 rounded-full" :class="u.ativo ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+              <span>{{ u.ativo ? 'Ativo' : 'Inativo' }}</span>
+            </div>
           </div>
 
-          <div v-if="u.id !== authStore.user?.id && u.usuario !== 'suporte.ti' && (authStore.isAdmin || podeModificarUsuario(u))" class="pt-2 border-t border-gray-100 flex justify-end gap-2 items-center">
+          <div v-if="u.id !== authStore.user?.id && u.usuario !== 'suporte.ti' && (authStore.isAdmin || authStore.isTI)" class="pt-2 border-t border-gray-100 flex justify-end gap-2 items-center">
             <button
-              v-if="authStore.isAdmin"
+              v-if="authStore.isAdmin && u.papel !== 'TI'"
               @click="alternarPapel(u)"
               class="px-2.5 py-1 text-xs font-bold border rounded-lg text-gray-700 bg-gray-50"
             >
               {{ u.papel === 'ADMIN' ? 'P/ Operador' : 'P/ Admin' }}
+            </button>
+            <button
+              v-if="authStore.isTI && u.papel !== 'ADMIN'"
+              @click="alternarPapelTI(u)"
+              class="px-2.5 py-1 text-xs font-bold border rounded-lg text-gray-700 bg-gray-50"
+            >
+              {{ u.papel === 'TI' ? 'P/ Operador' : 'P/ TI' }}
             </button>
             <button
               v-if="podeModificarUsuario(u)"
@@ -263,12 +268,10 @@
                   {{ s.descricao || '-' }}
                 </td>
                 <td class="py-3.5 px-4">
-                  <span
-                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase"
-                    :class="s.ativo ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'"
-                  >
-                    {{ s.ativo ? 'Ativo' : 'Inativo' }}
-                  </span>
+                  <div class="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                    <span class="w-2 h-2 rounded-full" :class="s.ativo ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+                    <span>{{ s.ativo ? 'Ativo' : 'Inativo' }}</span>
+                  </div>
                 </td>
                 <td class="py-3.5 px-4 text-right">
                   <div class="inline-flex items-center gap-2 justify-end">
@@ -281,9 +284,16 @@
                     <button
                       @click="alternarStatusSetor(s)"
                       class="px-2.5 py-1 text-xs font-bold rounded transition"
-                      :class="s.ativo ? 'text-red-600 hover:bg-red-50' : 'text-emerald-700 hover:bg-emerald-50'"
+                      :class="s.ativo ? 'text-slate-600 hover:bg-slate-100' : 'text-emerald-700 hover:bg-emerald-50'"
                     >
                       {{ s.ativo ? 'Inativar' : 'Reativar' }}
+                    </button>
+                    <button
+                      @click="excluirSetor(s)"
+                      class="px-2.5 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded transition"
+                      title="Excluir setor definitivamente"
+                    >
+                      Excluir
                     </button>
                   </div>
                 </td>
@@ -305,12 +315,10 @@
               <div class="font-bold text-gray-900 text-sm">{{ s.nome }}</div>
               <div class="text-xs text-gray-500 mt-0.5">{{ s.descricao || 'Sem descrição' }}</div>
             </div>
-            <span
-              class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black uppercase"
-              :class="s.ativo ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'"
-            >
-              {{ s.ativo ? 'Ativo' : 'Inativo' }}
-            </span>
+            <div class="inline-flex items-center gap-1.5 font-medium text-slate-700 text-xs">
+              <span class="w-2 h-2 rounded-full" :class="s.ativo ? 'bg-emerald-500' : 'bg-slate-300'"></span>
+              <span>{{ s.ativo ? 'Ativo' : 'Inativo' }}</span>
+            </div>
           </div>
 
           <div class="pt-2 border-t border-gray-100 flex justify-end gap-2 items-center">
@@ -323,9 +331,15 @@
             <button
               @click="alternarStatusSetor(s)"
               class="px-3 py-1 text-xs font-bold rounded-lg"
-              :class="s.ativo ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
+              :class="s.ativo ? 'text-slate-600 hover:bg-slate-100' : 'text-emerald-700 hover:bg-emerald-50'"
             >
               {{ s.ativo ? 'Inativar' : 'Reativar' }}
+            </button>
+            <button
+              @click="excluirSetor(s)"
+              class="px-3 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded-lg"
+            >
+              Excluir
             </button>
           </div>
         </div>
@@ -343,34 +357,52 @@
       </h3>
 
       <form @submit.prevent="salvarParametrosSla" class="space-y-4">
-        <div>
-          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-            Tempo Limite Máximo de Empréstimo Contínuo (Minutos)
+        <!-- Interruptor Mestre de SLA -->
+        <div class="flex items-center justify-between p-4 bg-slate-50 border border-slate-200 rounded-xl">
+          <div>
+            <div class="text-xs font-bold text-slate-800 uppercase tracking-wider">
+              Monitoramento de SLA de Coletores
+            </div>
+            <div class="text-[11px] text-slate-500 mt-0.5">
+              {{ formSla.slaAtivo ? 'Monitoramento ATIVO (tempo de posse e alertas em execução)' : 'Monitoramento DESATIVADO (sem contagem de atraso ou avisos de SLA)' }}
+            </div>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" v-model="formSla.slaAtivo" class="sr-only peer" />
+            <div class="w-11 h-6 bg-slate-300 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#002B49]"></div>
           </label>
-          <input
-            v-model.number="formSla.limiteUsoMinutos"
-            type="number"
-            min="30"
-            max="1440"
-            required
-            class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
-          />
-          <p class="text-[11px] text-gray-500 mt-1">Ex: 480 minutos correspondem ao turno integral de 8 horas.</p>
         </div>
 
-        <div>
-          <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-            Gatilho de Alerta Preventivo (% do tempo limite)
-          </label>
-          <input
-            v-model.number="formSla.alertaAmareloPercentual"
-            type="number"
-            min="10"
-            max="95"
-            required
-            class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
-          />
-          <p class="text-[11px] text-gray-500 mt-1">Ex: A 80% de 480min (384min / ~6h24m), o indicador visual torna-se amarelo no painel.</p>
+        <div :class="{ 'opacity-50 pointer-events-none': !formSla.slaAtivo }" class="space-y-4 transition-opacity">
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+              Tempo Limite Máximo de Empréstimo Contínuo (Minutos)
+            </label>
+            <input
+              v-model.number="formSla.limiteUsoMinutos"
+              type="number"
+              min="30"
+              max="1440"
+              :required="formSla.slaAtivo"
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+            />
+            <p class="text-[11px] text-gray-500 mt-1">Ex: 480 minutos correspondem ao turno integral de 8 horas.</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+              Gatilho de Alerta Preventivo (% do tempo limite)
+            </label>
+            <input
+              v-model.number="formSla.alertaAmareloPercentual"
+              type="number"
+              min="10"
+              max="95"
+              :required="formSla.slaAtivo"
+              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+            />
+            <p class="text-[11px] text-gray-500 mt-1">Ex: A 80% de 480min (384min / ~6h24m), o indicador visual torna-se amarelo no painel.</p>
+          </div>
         </div>
 
         <div class="pt-3 border-t flex justify-end">
@@ -393,7 +425,7 @@
       <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
         <div class="flex justify-between items-start border-b pb-3">
           <div>
-            <h3 class="text-base font-extrabold text-gray-900">Cadastrar Operador na Whitelist</h3>
+            <h3 class="text-base font-extrabold text-gray-900">Cadastrar Operador</h3>
             <p class="text-xs text-gray-500">Autoriza o usuário corporativo DASS a fazer login no sistema</p>
           </div>
           <button @click="modalNovoUsuarioAberto = false" class="text-gray-400 hover:text-gray-700 text-lg leading-none">
@@ -416,7 +448,7 @@
                 v-model="inputBuscaCorporativa"
                 type="text"
                 required
-                placeholder="Ex: carlos.almoxarife ou 2000393"
+                placeholder="Ex: jose.falcao ou 3023093"
                 class="flex-1 p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
                 @keydown.enter.prevent="consultarDadosCorporativos"
               />
@@ -446,7 +478,7 @@
           </div>
 
           <!-- Seleção do Papel -->
-          <div v-if="authStore.isAdmin">
+          <div>
             <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
               Papel / Nível de Acesso*
             </label>
@@ -455,13 +487,12 @@
               class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49] bg-white font-bold text-gray-800"
             >
               <option value="OPERADOR">OPERADOR (Check-out, Check-in, Solicitar Manutenção)</option>
-              <option value="TI">TI (Gestão de Manutenção e Cadastro de Operadores)</option>
-              <option value="ADMIN">ADMIN (Controle total, Gestão de Operadores, Parâmetros SLA)</option>
+              <option v-if="authStore.isTI" value="TI">TI (Gestão Técnica de Manutenção e TI)</option>
+              <option v-if="authStore.isAdmin" value="ADMIN">ADMIN (Controle total de Usuários e Parâmetros)</option>
             </select>
-          </div>
-          <div v-else class="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-gray-600">
-            <div class="font-bold text-gray-800">Papel Atribuído: OPERADOR</div>
-            <p class="text-[11px] text-gray-500 mt-0.5">Operadores cadastrados pela equipe de TI são habilitados com nível Operador de turno.</p>
+            <p v-if="authStore.isAdmin" class="text-[11px] text-gray-400 mt-1">
+              * Apenas usuários do perfil de TI podem cadastrar novos técnicos de TI.
+            </p>
           </div>
 
           <div class="flex justify-end gap-2 pt-3 border-t">
@@ -581,20 +612,16 @@ const exibirAlerta = (msg: string, tipo: 'sucesso' | 'erro' = 'sucesso') => {
   }, 6000);
 };
 
-// Cores e Permissões de Papel
-const corPapelBadge = (papel: string) => {
-  if (papel === 'ADMIN') return 'bg-purple-100 text-purple-800 border border-purple-200';
-  if (papel === 'TI') return 'bg-amber-100 text-amber-800 border border-amber-200';
-  return 'bg-blue-100 text-blue-800 border border-blue-200';
-};
-
 const podeModificarUsuario = (u: any) => {
   if (u.id === authStore.user?.id) return false;
   if (u.usuario === 'suporte.ti') return false;
-  if (authStore.isPureTI) {
-    return u.papel === 'OPERADOR';
+  if (authStore.isTI) {
+    return u.papel !== 'ADMIN';
   }
-  return authStore.isAdmin;
+  if (authStore.isAdmin) {
+    return u.papel !== 'TI';
+  }
+  return false;
 };
 
 // Modal Cadastro de Operador
@@ -608,6 +635,7 @@ const erroModal = ref('');
 
 // Configurações de SLA
 const formSla = ref({
+  slaAtivo: false,
   limiteUsoMinutos: 480,
   alertaAmareloPercentual: 80,
 });
@@ -710,6 +738,18 @@ const alternarStatusSetor = async (s: any) => {
   }
 };
 
+const excluirSetor = async (s: any) => {
+  if (!confirm(`Tem certeza que deseja excluir permanentemente o setor "${s.nome}"? Aparelhos vinculados a este setor ficarão sem setor atribuído.`)) return;
+
+  try {
+    const { data } = await api.delete(`/configuracoes/setores/${s.id}`);
+    exibirAlerta(data.mensagem || `Setor "${s.nome}" excluído com sucesso!`, 'sucesso');
+    await carregarSetores();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao excluir setor.', 'erro');
+  }
+};
+
 const usuariosFiltrados = computed(() => {
   const t = filtroBusca.value.trim().toLowerCase();
   if (!t) return usuarios.value;
@@ -739,8 +779,10 @@ const carregarConfiguracoesSla = async () => {
     const configs = data.dados || [];
     const limite = configs.find((c: any) => c.chave === 'LIMITE_USO_MINUTOS');
     const alerta = configs.find((c: any) => c.chave === 'ALERTA_AMARELO_PERCENTUAL');
+    const ativo = configs.find((c: any) => c.chave === 'SLA_ATIVO');
     if (limite) formSla.value.limiteUsoMinutos = Number(limite.valor);
     if (alerta) formSla.value.alertaAmareloPercentual = Number(alerta.valor);
+    formSla.value.slaAtivo = ativo ? ativo.valor.toLowerCase() === 'true' : false;
   } catch (err) {
     console.error('Erro ao carregar SLA:', err);
   }
@@ -813,8 +855,35 @@ const alternarPapel = async (u: any) => {
     exibirAlerta('O papel do perfil padrão suporte.ti é fixo como TI e não pode ser alterado.', 'erro');
     return;
   }
+  if (u.papel === 'TI') {
+    exibirAlerta('Administradores não podem alterar o papel de usuários de TI. Apenas TI pode gerenciar técnicos de TI.', 'erro');
+    return;
+  }
   const novoPapel = u.papel === 'ADMIN' ? 'OPERADOR' : 'ADMIN';
   const label = novoPapel === 'ADMIN' ? 'promover a Administrador' : 'rebaixar para Operador';
+
+  if (!confirm(`Deseja realmente ${label} o usuário ${u.nome}?`)) return;
+
+  try {
+    await api.patch(`/configuracoes/usuarios/${u.id}`, { papel: novoPapel });
+    exibirAlerta(`Papel de ${u.nome} atualizado para ${novoPapel}.`, 'sucesso');
+    await carregarUsuarios();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao alterar papel do operador.', 'erro');
+  }
+};
+
+const alternarPapelTI = async (u: any) => {
+  if (u.usuario === 'suporte.ti') {
+    exibirAlerta('O papel do perfil padrão suporte.ti é fixo como TI e não pode ser alterado.', 'erro');
+    return;
+  }
+  if (u.papel === 'ADMIN') {
+    exibirAlerta('Técnicos de TI não podem alterar o papel de Administradores.', 'erro');
+    return;
+  }
+  const novoPapel = u.papel === 'TI' ? 'OPERADOR' : 'TI';
+  const label = novoPapel === 'TI' ? 'promover a Técnico de TI' : 'rebaixar para Operador';
 
   if (!confirm(`Deseja realmente ${label} o usuário ${u.nome}?`)) return;
 

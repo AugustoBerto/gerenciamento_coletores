@@ -23,7 +23,10 @@
     </div>
 
     <!-- Cards de Métricas -->
-    <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5">
+    <div
+      class="grid grid-cols-2 gap-3.5"
+      :class="store.metricas?.slaAtivo ? 'sm:grid-cols-3 lg:grid-cols-5' : 'sm:grid-cols-2 lg:grid-cols-4'"
+    >
       <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-200">
         <div class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Parque Total</div>
         <div class="text-2xl font-black text-gray-900 mt-1">{{ store.metricas?.total ?? '-' }}</div>
@@ -48,7 +51,12 @@
         <div class="text-[10px] text-gray-400 mt-1">Em reparo técnico</div>
       </div>
 
-      <div class="col-span-2 sm:col-span-1 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border" :class="(store.metricas?.atrasados ?? 0) > 0 ? 'border-red-400 bg-red-50/50' : 'border-gray-200'">
+      <!-- Card SLA Excedido: Exibido exclusivamente quando o SLA estiver ativo -->
+      <div
+        v-if="store.metricas?.slaAtivo"
+        class="col-span-2 sm:col-span-1 bg-white p-4 sm:p-5 rounded-2xl shadow-sm border"
+        :class="(store.metricas?.atrasados ?? 0) > 0 ? 'border-red-400 bg-red-50/50' : 'border-gray-200'"
+      >
         <div class="text-[11px] font-bold uppercase tracking-wider" :class="(store.metricas?.atrasados ?? 0) > 0 ? 'text-red-700' : 'text-gray-500'">
           SLA Excedido
         </div>
@@ -213,6 +221,9 @@ const formatarData = (isoDate: string) => {
 };
 
 const getSlaBadgeClass = (status: string) => {
+  if (!store.metricas?.slaAtivo) {
+    return 'bg-slate-100 text-slate-700 font-mono';
+  }
   switch (status) {
     case 'EXCEDIDO':
       return 'bg-red-100 text-red-800 border border-red-300 animate-pulse';

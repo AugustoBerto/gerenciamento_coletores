@@ -17,8 +17,13 @@ export class RelatoriosService {
       coletorRepo.count({ where: { status: 'INATIVO' } }),
     ]);
 
-    const cfgLimite = await configRepo.findOne({ where: { chave: 'LIMITE_USO_MINUTOS' } });
+    const [cfgLimite, cfgSlaAtivo] = await Promise.all([
+      configRepo.findOne({ where: { chave: 'LIMITE_USO_MINUTOS' } }),
+      configRepo.findOne({ where: { chave: 'SLA_ATIVO' } }),
+    ]);
+
     const limiteMinutos = cfgLimite ? Number(cfgLimite.valor) : 480;
+    const slaAtivo = cfgSlaAtivo ? cfgSlaAtivo.valor.toLowerCase() === 'true' : false;
 
     const abertas = await movRepo.find({
       where: { dataRetorno: undefined as any },
@@ -27,11 +32,13 @@ export class RelatoriosService {
 
     const now = Date.now();
     let atrasados = 0;
-    for (const mov of abertas) {
-      if (!mov.dataRetorno) {
-        const diffMinutos = Math.floor((now - new Date(mov.dataSaida).getTime()) / 60000);
-        if (diffMinutos > limiteMinutos) {
-          atrasados += 1;
+    if (slaAtivo) {
+      for (const mov of abertas) {
+        if (!mov.dataRetorno) {
+          const diffMinutos = Math.floor((now - new Date(mov.dataSaida).getTime()) / 60000);
+          if (diffMinutos > limiteMinutos) {
+            atrasados += 1;
+          }
         }
       }
     }
@@ -43,6 +50,7 @@ export class RelatoriosService {
       manutencao,
       inativos,
       atrasados,
+      slaAtivo,
       limiteMinutosSLA: limiteMinutos,
     };
   }

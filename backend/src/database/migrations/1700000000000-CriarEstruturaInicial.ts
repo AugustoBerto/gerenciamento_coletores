@@ -128,6 +128,7 @@ export class CriarEstruturaInicial1700000000000 implements MigrationInterface {
     await queryRunner.query(`
       INSERT INTO gestao_coletores.configuracoes (chave, valor, descricao)
       VALUES 
+          ('SLA_ATIVO', 'false', 'Indica se o controle e monitoramento de SLA está ativo'),
           ('LIMITE_USO_MINUTOS', '480', 'Limite máximo de uso contínuo do coletor em minutos (8h)'),
           ('ALERTA_AMARELO_PERCENTUAL', '80', 'Percentual do tempo de uso para acionar alerta preventivo')
       ON CONFLICT (chave) DO NOTHING;
@@ -135,11 +136,7 @@ export class CriarEstruturaInicial1700000000000 implements MigrationInterface {
 
     await queryRunner.query(`
       INSERT INTO gestao_coletores.setores (nome, descricao) VALUES
-          ('Almoxarifado Central', 'Estoque principal e custódia de equipamentos'),
-          ('Expedição', 'Área de conferência e despacho de mercadorias'),
-          ('Recebimento', 'Triagem de matéria-prima e insumos'),
-          ('Linha de Montagem', 'Operação de montagem e esteiras'),
-          ('Logística Interna', 'Movimentação e abastecimento de células')
+          ('Expedição', 'Área de conferência e despacho de mercadorias')
       ON CONFLICT (nome) DO NOTHING;
     `);
   }

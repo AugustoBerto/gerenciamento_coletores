@@ -2,6 +2,7 @@ import { ILike } from 'typeorm';
 import { AppDataSource } from '../../config/database';
 import { Operador } from '../../database/entities/Operador';
 import { Setor } from '../../database/entities/Setor';
+import { Coletor } from '../../database/entities/Coletor';
 import { AppError } from '../../shared/errors/AppError';
 
 export interface NovoUsuarioDTO {
@@ -117,14 +118,19 @@ export class ConfiguracoesService {
       throw new AppError('Usuário e matrícula são obrigatórios.', 400, 'CAMPOS_OBRIGATORIOS');
     }
 
-    // Regra: Perfil de TI só pode cadastrar operadores comuns
-    let papelAtribuido: 'ADMIN' | 'TI' | 'OPERADOR' = dto.papel || 'OPERADOR';
-    if (solicitante?.papel === 'TI') {
-      if (dto.papel && dto.papel !== 'OPERADOR') {
-        throw new AppError('Perfil de TI só tem permissão para cadastrar operadores comuns.', 403, 'PERMISSAO_NEGADA_TI');
-      }
-      papelAtribuido = 'OPERADOR';
+    const papelDesejado = dto.papel || 'OPERADOR';
+
+    // Regra: Apenas usuários de TI podem cadastrar outro TI
+    if (papelDesejado === 'TI' && solicitante?.papel !== 'TI') {
+      throw new AppError('Apenas usuários do perfil de TI podem cadastrar novos usuários como TI.', 403, 'PERMISSAO_NEGADA_CADASTRO_TI');
     }
+
+    // Regra: Apenas Administradores podem cadastrar Administradores
+    if (papelDesejado === 'ADMIN' && solicitante?.papel !== 'ADMIN') {
+      throw new AppError('Apenas Administradores podem cadastrar outros Administradores.', 403, 'PERMISSAO_NEGADA_ADMIN');
+    }
+
+    const papelAtribuido: 'ADMIN' | 'TI' | 'OPERADOR' = papelDesejado;
 
     const operadorRepo = AppDataSource.getRepository(Operador);
 
@@ -178,13 +184,18 @@ export class ConfiguracoesService {
       }
     }
 
-    // Regra: Restrições específicas do papel TI
+    // Regra: Restrições de atribuição e alteração de papel
+    if (dto.papel === 'TI' && solicitante.papel !== 'TI') {
+      throw new AppError('Apenas usuários do perfil de TI podem conceder o perfil de TI.', 403, 'PERMISSAO_NEGADA_ATRIBUICAO_TI');
+    }
+
+    if (dto.papel === 'ADMIN' && solicitante.papel !== 'ADMIN') {
+      throw new AppError('Apenas Administradores podem conceder o perfil de Administrador.', 403, 'PERMISSAO_NEGADA_ADMIN');
+    }
+
     if (solicitante.papel === 'TI') {
       if (operador.papel === 'ADMIN' || (operador.papel === 'TI' && operador.id !== solicitante.id)) {
-        throw new AppError('Perfil de TI não tem permissão para alterar administradores ou outros técnicos de TI.', 403, 'PERMISSAO_NEGADA_TI');
-      }
-      if (dto.papel && dto.papel !== 'OPERADOR') {
-        throw new AppError('Perfil de TI só pode definir papéis como OPERADOR.', 403, 'PERMISSAO_NEGADA_TI');
+        throw new AppError('Perfil de TI não tem permissão para alterar Administradores ou outros técnicos de TI.', 403, 'PERMISSAO_NEGADA_TI');
       }
     }
 
@@ -319,5 +330,24 @@ export class ConfiguracoesService {
 
     setor.ativo = !setor.ativo;
     return setorRepo.save(setor);
+  }
+
+  public static async excluirSetor(id: string): Promise<{ mensagem: string }> {
+    const setorRepo = AppDataSource.getRepository(Setor);
+    const coletorRepo = AppDataSource.getRepository(Coletor);
+
+    const setor = await setorRepo.findOne({ where: { id } });
+    if (!setor) {
+      throw new AppError('Setor não encontrado.', 404, 'SETOR_NAO_ENCONTRADO');
+    }
+
+    // Desvincula os coletores vinculados antes da exclusão
+    const coletoresVinculados = await coletorRepo.count({ where: { setorId: id } });
+    if (coletoresVinculados > 0) {
+      await coletorRepo.update({ setorId: id }, { setorId: null });
+    }
+
+    await setorRepo.delete(id);
+    return { mensagem: `Setor "${setor.nome}" excluído com sucesso.` };
   }
 }

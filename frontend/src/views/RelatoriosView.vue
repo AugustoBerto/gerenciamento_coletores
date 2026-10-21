@@ -92,8 +92,10 @@
                 <td class="py-3 px-4 font-mono text-gray-700">{{ formatarDataCompleta(m.dataSaida) }}</td>
                 <td class="py-3 px-4 text-gray-600">{{ m.operadorSaida?.nome }}</td>
                 <td class="py-3 px-4 font-mono text-gray-700">
-                  <span v-if="m.dataRetorno">{{ formatarDataCompleta(m.dataRetorno) }}</span>
-                  <span v-else class="text-blue-600 font-bold bg-blue-50 px-2 py-0.5 rounded">Em Aberto</span>
+                  <div class="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                    <span class="w-2 h-2 rounded-full" :class="m.dataRetorno ? 'bg-slate-300' : 'bg-blue-500'"></span>
+                    <span>{{ m.dataRetorno ? formatarDataCompleta(m.dataRetorno) : 'Em aberto' }}</span>
+                  </div>
                 </td>
                 <td class="py-3 px-4 text-gray-600">{{ m.operadorRetorno?.nome || '-' }}</td>
                 <td class="py-3 px-4 text-center font-mono font-semibold">
@@ -119,12 +121,10 @@
                 <span class="font-mono font-black text-sm text-gray-900">{{ m.coletor?.patrimonio }}</span>
                 <span class="text-xs text-gray-500 ml-1.5">{{ m.coletor?.marca }} {{ m.coletor?.modelo }}</span>
               </div>
-              <span
-                class="px-2 py-0.5 rounded text-[10px] font-bold"
-                :class="m.dataRetorno ? 'bg-emerald-100 text-emerald-800' : 'bg-blue-100 text-blue-800'"
-              >
-                {{ m.dataRetorno ? 'Devolvido' : 'Em Aberto' }}
-              </span>
+              <div class="inline-flex items-center gap-1.5 font-medium text-slate-700 text-xs">
+                <span class="w-2 h-2 rounded-full" :class="m.dataRetorno ? 'bg-slate-300' : 'bg-blue-500'"></span>
+                <span>{{ m.dataRetorno ? 'Devolvido' : 'Em aberto' }}</span>
+              </div>
             </div>
 
             <div class="text-xs text-gray-700">

@@ -21,29 +21,32 @@ export interface DevolucaoDTO {
 }
 
 export class MovimentacoesService {
-  private static slaCache: { limiteMinutos: number; alertaPercentual: number; timestamp: number } | null = null;
+  private static slaCache: { ativo: boolean; limiteMinutos: number; alertaPercentual: number; timestamp: number } | null = null;
   private static readonly SLA_CACHE_TTL_MS = 60000; // 1 minuto de cache em memória
 
   public static invalidarCacheSLA(): void {
     this.slaCache = null;
   }
 
-  public static async obterLimitesSLA(): Promise<{ limiteMinutos: number; alertaPercentual: number }> {
+  public static async obterLimitesSLA(): Promise<{ ativo: boolean; limiteMinutos: number; alertaPercentual: number }> {
     const now = Date.now();
     if (this.slaCache && now - this.slaCache.timestamp < this.SLA_CACHE_TTL_MS) {
       return {
+        ativo: this.slaCache.ativo,
         limiteMinutos: this.slaCache.limiteMinutos,
         alertaPercentual: this.slaCache.alertaPercentual,
       };
     }
 
     const configRepo = AppDataSource.getRepository(Configuracao);
-    const [cfgLimite, cfgAlerta] = await Promise.all([
+    const [cfgLimite, cfgAlerta, cfgAtivo] = await Promise.all([
       configRepo.findOne({ where: { chave: 'LIMITE_USO_MINUTOS' } }),
       configRepo.findOne({ where: { chave: 'ALERTA_AMARELO_PERCENTUAL' } }),
+      configRepo.findOne({ where: { chave: 'SLA_ATIVO' } }),
     ]);
 
     const resultado = {
+      ativo: cfgAtivo ? cfgAtivo.valor.toLowerCase() === 'true' : false,
       limiteMinutos: cfgLimite ? Number(cfgLimite.valor) : 480,
       alertaPercentual: cfgAlerta ? Number(cfgAlerta.valor) : 80,
     };
@@ -135,7 +138,8 @@ export class MovimentacoesService {
       FROM colaborador.colaboradores c
       LEFT JOIN colaborador.lista_funcionario l ON l.matricula = c.matricula
       WHERE c.codbarras = $1 
-         OR ($2::bigint IS NOT NULL AND (c.matricula = $2 OR c.rfid = $2))
+         OR c.rfid = $1
+         OR ($2::bigint IS NOT NULL AND c.matricula = $2)
       LIMIT 1;
     `;
 
@@ -168,15 +172,17 @@ export class MovimentacoesService {
       );
     }
 
-    const { limiteMinutos, alertaPercentual } = await this.obterLimitesSLA();
+    const { ativo: slaAtivo, limiteMinutos, alertaPercentual } = await this.obterLimitesSLA();
     const minutosEmUso = Math.floor((Date.now() - new Date(mov.dataSaida).getTime()) / 60000);
     const limiarAlerta = (limiteMinutos * alertaPercentual) / 100;
 
     let statusSLA: 'NORMAL' | 'ALERTA' | 'EXCEDIDO' = 'NORMAL';
-    if (minutosEmUso >= limiteMinutos) {
-      statusSLA = 'EXCEDIDO';
-    } else if (minutosEmUso >= limiarAlerta) {
-      statusSLA = 'ALERTA';
+    if (slaAtivo) {
+      if (minutosEmUso >= limiteMinutos) {
+        statusSLA = 'EXCEDIDO';
+      } else if (minutosEmUso >= limiarAlerta) {
+        statusSLA = 'ALERTA';
+      }
     }
 
     const horas = Math.floor(minutosEmUso / 60);
@@ -225,15 +231,17 @@ export class MovimentacoesService {
       throw new AppError('Este coletor não possui movimentação em aberto.', 404, 'NENHUMA_CUSTODIA_ABERTA');
     }
 
-    const { limiteMinutos, alertaPercentual } = await this.obterLimitesSLA();
+    const { ativo: slaAtivo, limiteMinutos, alertaPercentual } = await this.obterLimitesSLA();
     const minutosEmUso = Math.floor((Date.now() - new Date(mov.dataSaida).getTime()) / 60000);
     const limiarAlerta = (limiteMinutos * alertaPercentual) / 100;
 
     let statusSLA: 'NORMAL' | 'ALERTA' | 'EXCEDIDO' = 'NORMAL';
-    if (minutosEmUso >= limiteMinutos) {
-      statusSLA = 'EXCEDIDO';
-    } else if (minutosEmUso >= limiarAlerta) {
-      statusSLA = 'ALERTA';
+    if (slaAtivo) {
+      if (minutosEmUso >= limiteMinutos) {
+        statusSLA = 'EXCEDIDO';
+      } else if (minutosEmUso >= limiarAlerta) {
+        statusSLA = 'ALERTA';
+      }
     }
 
     const horas = Math.floor(minutosEmUso / 60);
@@ -344,7 +352,7 @@ export class MovimentacoesService {
   }
 
   public static async listarAtivas(): Promise<any[]> {
-    const { limiteMinutos, alertaPercentual } = await this.obterLimitesSLA();
+    const { ativo: slaAtivo, limiteMinutos, alertaPercentual } = await this.obterLimitesSLA();
     const limiarAlerta = (limiteMinutos * alertaPercentual) / 100;
 
     const movRepo = AppDataSource.getRepository(Movimentacao);
@@ -361,10 +369,12 @@ export class MovimentacoesService {
     return ativas.map((m) => {
       const minutosEmUso = Math.floor((now - new Date(m.dataSaida).getTime()) / 60000);
       let statusSLA: 'NORMAL' | 'ALERTA' | 'EXCEDIDO' = 'NORMAL';
-      if (minutosEmUso >= limiteMinutos) {
-        statusSLA = 'EXCEDIDO';
-      } else if (minutosEmUso >= limiarAlerta) {
-        statusSLA = 'ALERTA';
+      if (slaAtivo) {
+        if (minutosEmUso >= limiteMinutos) {
+          statusSLA = 'EXCEDIDO';
+        } else if (minutosEmUso >= limiarAlerta) {
+          statusSLA = 'ALERTA';
+        }
       }
 
       const horas = Math.floor(minutosEmUso / 60);
@@ -391,7 +401,7 @@ export class MovimentacoesService {
         minutosEmUso,
         tempoFormatado: `${horas}h ${mins.toString().padStart(2, '0')}m`,
         statusSLA,
-        minutosExcedidos: Math.max(0, minutosEmUso - limiteMinutos),
+        minutosExcedidos: slaAtivo ? Math.max(0, minutosEmUso - limiteMinutos) : 0,
       };
     });
   }

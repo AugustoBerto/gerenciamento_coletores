@@ -100,33 +100,30 @@
                 <th class="py-3 px-4">Nº de Série</th>
                 <th class="py-3 px-4">Status</th>
                 <th class="py-3 px-4">Observação / Defeito</th>
-                <th class="py-3 px-4 text-right">Ações Operacionais</th>
+                <th class="py-3 px-4 text-right">Ações</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
-              <tr v-for="c in coletores" :key="c.id" class="hover:bg-gray-50/80 transition">
+              <tr
+                v-for="c in coletores"
+                :key="c.id"
+                @click="abrirModalDetalhes(c)"
+                class="hover:bg-slate-50 cursor-pointer transition select-none group"
+              >
                 <td class="py-3.5 px-4 font-mono font-bold text-gray-900 text-sm">
                   {{ c.patrimonio }}
                 </td>
                 <td class="py-3.5 px-4 font-semibold text-gray-800">{{ c.marca }}</td>
                 <td class="py-3.5 px-4 font-medium text-gray-800">{{ c.modelo }}</td>
-                <td class="py-3.5 px-4">
-                  <span
-                    v-if="c.setor?.nome"
-                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200"
-                  >
-                    {{ c.setor.nome }}
-                  </span>
-                  <span v-else class="text-gray-400 text-[11px] italic">Geral</span>
+                <td class="py-3.5 px-4 text-slate-700 font-medium">
+                  {{ c.setor?.nome || 'Geral' }}
                 </td>
                 <td class="py-3.5 px-4 font-mono text-gray-500 text-[11px]">{{ c.numeroSerie || '-' }}</td>
                 <td class="py-3.5 px-4">
-                  <span
-                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold"
-                    :class="getStatusBadgeClass(c.status)"
-                  >
-                    {{ c.status }}
-                  </span>
+                  <div class="inline-flex items-center gap-1.5 font-medium text-slate-700">
+                    <span class="w-2 h-2 rounded-full" :class="getStatusDotClass(c.status)"></span>
+                    <span>{{ formatarStatus(c.status) }}</span>
+                  </div>
                 </td>
                 <td class="py-3.5 px-4 text-gray-500 text-xs">
                   <div v-if="c.status === 'MANUTENCAO'" class="space-y-1">
@@ -140,87 +137,14 @@
                   <span v-else class="text-gray-400">-</span>
                 </td>
                 <td class="py-3.5 px-4 text-right">
-                  <div class="inline-flex items-center gap-1.5 justify-end">
-                    <!-- Ação ADMIN: Checkout Manual (quando DISPONIVEL) -->
-                    <button
-                      v-if="authStore.isAdmin && c.status === 'DISPONIVEL'"
-                      @click="abrirModalCheckoutManual(c)"
-                      title="Realizar empréstimo manual deste coletor"
-                      class="px-2.5 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded font-bold text-[11px] transition"
-                    >
-                      Checkout Manual
-                    </button>
-
-                    <!-- Ação ADMIN: Checkin Manual (quando EM_USO) -->
-                    <button
-                      v-if="authStore.isAdmin && c.status === 'EM_USO'"
-                      @click="abrirModalCheckinManual(c)"
-                      title="Concluir devolução manual imediata deste coletor"
-                      class="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 rounded font-bold text-[11px] transition"
-                    >
-                      Checkin Manual
-                    </button>
-
-                    <!-- Manutenção: Entrada Técnica (TI / Admin) ou Solicitar Manutenção (Operador) -->
-                    <button
-                      v-if="c.status === 'DISPONIVEL' && authStore.canManageMaintenance"
-                      @click="abrirModalManutencao(c)"
-                      class="px-2 py-1 text-amber-700 hover:bg-amber-50 rounded font-bold text-[11px] transition"
-                    >
-                      Entrada Técnica
-                    </button>
-                    <button
-                      v-else-if="c.status === 'DISPONIVEL'"
-                      @click="abrirModalManutencao(c)"
-                      class="px-2 py-1 text-amber-600 hover:bg-amber-50 rounded font-bold text-[11px] transition"
-                    >
-                      Solicitar Manutenção
-                    </button>
-
-                    <!-- Concluir Reparo (TI / Admin exclusivo) -->
-                    <button
-                      v-if="c.status === 'MANUTENCAO' && authStore.canManageMaintenance"
-                      @click="abrirModalConcluirManutencao(c)"
-                      class="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 rounded font-bold text-[11px] transition"
-                    >
-                      Concluir Reparo
-                    </button>
-                    <span
-                      v-else-if="c.status === 'MANUTENCAO'"
-                      class="px-2 py-0.5 text-[10px] font-bold text-amber-700 bg-amber-50 rounded border border-amber-200"
-                    >
-                      Em Reparo com TI
-                    </span>
-
-                    <!-- Editar Coletor (Admin & TI) -->
-                    <button
-                      v-if="authStore.canManageUsers"
-                      @click="abrirModalEditarColetor(c)"
-                      title="Editar dados e setor do coletor"
-                      class="px-2 py-1 text-slate-700 hover:bg-slate-100 rounded font-bold text-[11px] transition"
-                    >
-                      Editar
-                    </button>
-
-                    <!-- Reativar (Admin & TI) -->
-                    <button
-                      v-if="authStore.canManageUsers && c.status === 'INATIVO'"
-                      @click="reativarColetor(c)"
-                      title="Reativar este coletor no sistema"
-                      class="px-2.5 py-1 bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300 rounded font-bold text-[11px] transition"
-                    >
-                      Reativar
-                    </button>
-
-                    <!-- Inativar (Admin & TI) -->
-                    <button
-                      v-if="authStore.canManageUsers && c.status !== 'EM_USO' && c.status !== 'INATIVO'"
-                      @click="inativarColetor(c)"
-                      class="px-2 py-1 text-red-500 hover:text-red-700 hover:bg-red-50 rounded font-medium text-[11px] transition"
-                    >
-                      Inativar
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    @click.stop="abrirModalDetalhes(c)"
+                    class="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-bold text-slate-700 group-hover:text-[#002B49] group-hover:bg-slate-200/60 rounded-lg transition"
+                  >
+                    <span>Detalhes</span>
+                    <span class="text-slate-400 group-hover:text-[#002B49]">&rarr;</span>
+                  </button>
                 </td>
               </tr>
             </tbody>
@@ -233,29 +157,22 @@
         <div
           v-for="c in coletores"
           :key="c.id"
-          class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between space-y-3"
+          @click="abrirModalDetalhes(c)"
+          class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 flex flex-col justify-between space-y-3 cursor-pointer hover:border-slate-400 hover:shadow-md transition"
         >
           <div class="flex justify-between items-start">
             <div>
               <div class="font-mono text-base font-black text-gray-900">{{ c.patrimonio }}</div>
               <div class="text-xs font-bold text-gray-800 mt-0.5">{{ c.marca }} {{ c.modelo }}</div>
               <div class="flex items-center gap-2 mt-1">
-                <span
-                  v-if="c.setor?.nome"
-                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-blue-800 border border-blue-200"
-                >
-                  {{ c.setor.nome }}
-                </span>
-                <span v-else class="text-[10px] text-gray-400">Geral</span>
-                <span class="text-[10px] text-gray-400 font-mono">S/N: {{ c.numeroSerie || '-' }}</span>
+                <span class="text-xs text-slate-600 font-medium">{{ c.setor?.nome || 'Geral' }}</span>
+                <span class="text-[10px] text-gray-400 font-mono">&bull; S/N: {{ c.numeroSerie || '-' }}</span>
               </div>
             </div>
-            <span
-              class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold"
-              :class="getStatusBadgeClass(c.status)"
-            >
-              {{ c.status }}
-            </span>
+            <div class="inline-flex items-center gap-1.5 font-medium text-slate-700 text-xs">
+              <span class="w-2 h-2 rounded-full" :class="getStatusDotClass(c.status)"></span>
+              <span>{{ formatarStatus(c.status) }}</span>
+            </div>
           </div>
 
           <div v-if="c.status === 'MANUTENCAO'" class="bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-[11px] text-amber-800 space-y-1">
@@ -265,77 +182,164 @@
             <div><strong>Defeito:</strong> {{ c.motivoManutencao || 'Manutenção técnica' }}</div>
           </div>
 
-          <!-- Botões de Ação Mobile/Tablet -->
-          <div class="pt-2 border-t border-gray-100 flex flex-wrap gap-2 justify-end">
-            <button
-              v-if="authStore.isAdmin && c.status === 'DISPONIVEL'"
-              @click="abrirModalCheckoutManual(c)"
-              class="px-3 py-1.5 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg font-bold text-xs"
-            >
-              Checkout Manual
-            </button>
-
-            <button
-              v-if="authStore.isAdmin && c.status === 'EM_USO'"
-              @click="abrirModalCheckinManual(c)"
-              class="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg font-bold text-xs"
-            >
-              Checkin Manual
-            </button>
-
-            <button
-              v-if="c.status === 'DISPONIVEL' && authStore.canManageMaintenance"
-              @click="abrirModalManutencao(c)"
-              class="px-3 py-1.5 bg-amber-50 text-amber-800 rounded-lg font-bold text-xs"
-            >
-              Entrada Técnica
-            </button>
-            <button
-              v-else-if="c.status === 'DISPONIVEL'"
-              @click="abrirModalManutencao(c)"
-              class="px-3 py-1.5 bg-amber-50 text-amber-700 rounded-lg font-bold text-xs"
-            >
-              Solicitar Manutenção
-            </button>
-
-            <button
-              v-if="c.status === 'MANUTENCAO' && authStore.canManageMaintenance"
-              @click="abrirModalConcluirManutencao(c)"
-              class="px-3 py-1.5 bg-emerald-600 text-white rounded-lg font-bold text-xs"
-            >
-              Concluir Reparo
-            </button>
-            <span
-              v-else-if="c.status === 'MANUTENCAO'"
-              class="px-2.5 py-1 text-xs font-bold text-amber-700 bg-amber-50 rounded-lg border border-amber-200"
-            >
-              Em Reparo com TI
+          <div class="pt-2 border-t border-gray-100 flex justify-between items-center text-xs">
+            <span class="text-[11px] text-slate-400">Toque para ações</span>
+            <span class="text-xs font-bold text-[#002B49] flex items-center gap-1">
+              Ver detalhes &rarr;
             </span>
+          </div>
+        </div>
+      </div>
+    </div>
 
+    <!-- MODAL: DETALHES E AÇÕES OPERACIONAIS DO COLETOR -->
+    <div
+      v-if="modalDetalhesAberto && coletorDetalhes"
+      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
+      @click.self="modalDetalhesAberto = false"
+    >
+      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-5">
+        <!-- Topo: Patrimônio, Marca/Modelo e Status -->
+        <div class="flex justify-between items-start border-b pb-4">
+          <div>
+            <div class="flex items-center gap-2.5">
+              <span class="text-2xl font-black font-mono text-slate-900 tracking-tight">
+                {{ coletorDetalhes.patrimonio }}
+              </span>
+              <div class="inline-flex items-center gap-1.5 font-semibold text-xs px-2.5 py-1 rounded-full bg-slate-100 text-slate-700">
+                <span class="w-2 h-2 rounded-full" :class="getStatusDotClass(coletorDetalhes.status)"></span>
+                <span>{{ formatarStatus(coletorDetalhes.status) }}</span>
+              </div>
+            </div>
+            <p class="text-xs text-slate-500 mt-1 font-medium">
+              {{ coletorDetalhes.marca }} {{ coletorDetalhes.modelo }}
+            </p>
+          </div>
+          <button @click="modalDetalhesAberto = false" class="text-slate-400 hover:text-slate-700 text-xl leading-none p-1">
+            &times;
+          </button>
+        </div>
+
+        <!-- Dados / Informações Detalhadas -->
+        <div class="grid grid-cols-2 gap-3 text-xs bg-slate-50 p-4 rounded-xl border border-slate-200/80">
+          <div>
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Setor Alocado</span>
+            <span class="font-bold text-slate-800 text-xs">{{ coletorDetalhes.setor?.nome || 'Geral (Sem setor)' }}</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Número de Série</span>
+            <span class="font-mono text-slate-700 text-xs">{{ coletorDetalhes.numeroSerie || 'Não informado' }}</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Cadastrado em</span>
+            <span class="text-slate-700 text-xs">{{ formatarDataSimples(coletorDetalhes.criadoEm) }}</span>
+          </div>
+          <div>
+            <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Última Atualização</span>
+            <span class="text-slate-700 text-xs">{{ formatarDataSimples(coletorDetalhes.atualizadoEm) }}</span>
+          </div>
+        </div>
+
+        <!-- Bloco condicional se em Manutenção -->
+        <div v-if="coletorDetalhes.status === 'MANUTENCAO'" class="p-3.5 rounded-xl border border-amber-200 bg-amber-50/70 text-xs text-amber-900 space-y-1">
+          <div class="flex items-center justify-between">
+            <span class="font-bold uppercase tracking-wider text-[10px] text-amber-700">Equipamento em Reparo</span>
+            <span v-if="coletorDetalhes.numeroOs" class="font-mono font-bold text-[10px] bg-amber-200/80 px-2 py-0.5 rounded">
+              OS: {{ coletorDetalhes.numeroOs }}
+            </span>
+          </div>
+          <div><strong>Motivo:</strong> {{ coletorDetalhes.motivoManutencao || 'Defeito técnico relatado' }}</div>
+          <div v-if="coletorDetalhes.dataEnvioManutencao" class="text-[11px] text-amber-700">
+            Enviado em: {{ formatarDataSimples(coletorDetalhes.dataEnvioManutencao) }}
+          </div>
+        </div>
+
+        <!-- Ações Operacionais -->
+        <div class="space-y-2 pt-2 border-t border-slate-100">
+          <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ações Disponíveis</div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <!-- Checkout Manual -->
+            <button
+              v-if="authStore.isAdmin && coletorDetalhes.status === 'DISPONIVEL'"
+              @click="executarAcaoModal(() => abrirModalCheckoutManual(coletorDetalhes))"
+              class="p-2.5 bg-blue-50 hover:bg-blue-100 text-blue-800 border border-blue-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
+            >
+              <span>+ Checkout Manual</span>
+            </button>
+
+            <!-- Checkin Manual -->
+            <button
+              v-if="authStore.isAdmin && coletorDetalhes.status === 'EM_USO'"
+              @click="executarAcaoModal(() => abrirModalCheckinManual(coletorDetalhes))"
+              class="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
+            >
+              <span>&check; Checkin Manual</span>
+            </button>
+
+            <!-- Manutenção / Entrada Técnica -->
+            <button
+              v-if="coletorDetalhes.status === 'DISPONIVEL' && authStore.canManageMaintenance"
+              @click="executarAcaoModal(() => abrirModalManutencao(coletorDetalhes))"
+              class="p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
+            >
+              <span>Entrada Técnica (Manutenção)</span>
+            </button>
+            <button
+              v-else-if="coletorDetalhes.status === 'DISPONIVEL'"
+              @click="executarAcaoModal(() => abrirModalManutencao(coletorDetalhes))"
+              class="p-2.5 bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
+            >
+              <span>Solicitar Manutenção</span>
+            </button>
+
+            <!-- Concluir Reparo -->
+            <button
+              v-if="coletorDetalhes.status === 'MANUTENCAO' && authStore.canManageMaintenance"
+              @click="executarAcaoModal(() => abrirModalConcluirManutencao(coletorDetalhes))"
+              class="p-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 shadow-sm transition"
+            >
+              <span>&check; Concluir Reparo Técnico</span>
+            </button>
+
+            <!-- Editar Coletor -->
             <button
               v-if="authStore.canManageUsers"
-              @click="abrirModalEditarColetor(c)"
-              class="px-3 py-1.5 text-slate-700 hover:bg-slate-100 border border-slate-300 rounded-lg font-bold text-xs"
+              @click="executarAcaoModal(() => abrirModalEditarColetor(coletorDetalhes))"
+              class="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
             >
-              Editar
+              <span>Editar Cadastro</span>
             </button>
 
+            <!-- Reativar Coletor -->
             <button
-              v-if="authStore.canManageUsers && c.status === 'INATIVO'"
-              @click="reativarColetor(c)"
-              class="px-3 py-1.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg font-bold text-xs"
+              v-if="authStore.canManageUsers && coletorDetalhes.status === 'INATIVO'"
+              @click="executarAcaoModal(() => reativarColetor(coletorDetalhes))"
+              class="p-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
             >
-              Reativar
+              <span>Reativar Coletor</span>
             </button>
 
+            <!-- Inativar Coletor -->
             <button
-              v-if="authStore.canManageUsers && c.status !== 'EM_USO' && c.status !== 'INATIVO'"
-              @click="inativarColetor(c)"
-              class="px-3 py-1.5 text-red-600 hover:bg-red-50 border border-red-200 rounded-lg font-bold text-xs"
+              v-if="authStore.canManageUsers && coletorDetalhes.status !== 'EM_USO' && coletorDetalhes.status !== 'INATIVO'"
+              @click="executarAcaoModal(() => inativarColetor(coletorDetalhes))"
+              class="p-2.5 text-rose-700 hover:bg-rose-50 border border-rose-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
             >
-              Inativar
+              <span>Inativar Coletor</span>
             </button>
           </div>
+        </div>
+
+        <!-- Fechar -->
+        <div class="pt-3 border-t flex justify-end">
+          <button
+            type="button"
+            @click="modalDetalhesAberto = false"
+            class="px-5 py-2 border border-slate-300 rounded-xl text-xs font-bold text-slate-700 hover:bg-slate-100 transition"
+          >
+            Fechar
+          </button>
         </div>
       </div>
     </div>
@@ -915,17 +919,58 @@ const checkinObservacao = ref('');
 const loadingCheckinSubmit = ref(false);
 const erroModalCheckin = ref('');
 
-const getStatusBadgeClass = (status: string) => {
+// Modal Detalhes e Ações do Coletor
+const modalDetalhesAberto = ref(false);
+const coletorDetalhes = ref<any>(null);
+
+const abrirModalDetalhes = (c: any) => {
+  coletorDetalhes.value = c;
+  modalDetalhesAberto.value = true;
+};
+
+const executarAcaoModal = (acao: () => void) => {
+  modalDetalhesAberto.value = false;
+  acao();
+};
+
+const getStatusDotClass = (status: string) => {
   switch (status) {
     case 'DISPONIVEL':
-      return 'bg-emerald-100 text-emerald-800';
+      return 'bg-emerald-500';
     case 'EM_USO':
-      return 'bg-blue-100 text-blue-800';
+      return 'bg-blue-500';
     case 'MANUTENCAO':
-      return 'bg-amber-100 text-amber-800';
+      return 'bg-amber-500';
     default:
-      return 'bg-gray-100 text-gray-600';
+      return 'bg-slate-400';
   }
+};
+
+const formatarStatus = (status: string) => {
+  switch (status) {
+    case 'DISPONIVEL':
+      return 'Disponível';
+    case 'EM_USO':
+      return 'Em uso';
+    case 'MANUTENCAO':
+      return 'Manutenção';
+    case 'INATIVO':
+      return 'Inativo';
+    default:
+      return status;
+  }
+};
+
+const formatarDataSimples = (data?: string | Date) => {
+  if (!data) return '-';
+  const d = new Date(data);
+  return d.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
 };
 
 const carregarColetores = async () => {

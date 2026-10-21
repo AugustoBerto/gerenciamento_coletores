@@ -39,7 +39,8 @@ export class ColaboradoresService {
       FROM colaborador.colaboradores c
       LEFT JOIN colaborador.lista_funcionario l ON l.matricula = c.matricula
       WHERE c.codbarras = $1 
-         OR ($2::bigint IS NOT NULL AND (c.matricula = $2 OR c.rfid = $2))
+         OR c.rfid = $1
+         OR ($2::bigint IS NOT NULL AND c.matricula = $2)
       LIMIT 1;
     `;
 
