@@ -16,6 +16,7 @@ export const AppDataSource = new DataSource({
   url: databaseUrl,
   schema: 'gestao_coletores',
   synchronize: false,
+  migrationsTableName: 'schema_migrations',
   logging: process.env.NODE_ENV === 'development',
   extra: {
     max: 20,
@@ -30,6 +31,8 @@ export const connectDatabase = async (): Promise<DataSource> => {
   if (!AppDataSource.isInitialized) {
     await AppDataSource.initialize();
     console.log('[Database] Conectado com sucesso ao PostgreSQL via DATABASE_URL (schema: gestao_coletores).');
+    await AppDataSource.runMigrations();
+    console.log('[Database] Migrations verificadas/executadas com sucesso.');
   }
   return AppDataSource;
 };
