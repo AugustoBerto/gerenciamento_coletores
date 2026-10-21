@@ -7,9 +7,13 @@ import { AppError } from '../../shared/errors/AppError';
 
 export class AuthService {
   private static getDassAuthUrl(): string {
-    const url = process.env.DASS_AUTH_URL;
+    let url = process.env.DASS_AUTH_URL;
     if (!url) {
       throw new AppError('DASS_AUTH_URL não configurada no backend.', 500, 'DASS_AUTH_URL_MISSING');
+    }
+    url = url.trim().replace(/\/+$/, '');
+    if (url.includes(':2399') && !url.endsWith('/api')) {
+      url = `${url}/api`;
     }
     return url;
   }

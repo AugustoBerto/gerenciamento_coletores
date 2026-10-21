@@ -49,7 +49,7 @@ sequenceDiagram
     actor Op as Almoxarife (Leitor Barcode / Tablet)
     participant UI as Frontend (Vue 3 / Pinia)
     participant GW as Dass API Gateway (:2399)
-    participant API as Backend Coletores (:3050)
+    participant API as Backend Coletores (:3131)
     participant DB as PostgreSQL (dass-postgres:5432)
 
     Op->>UI: Bipa Crachá do Colaborador (14 dígitos / Matrícula)
@@ -111,7 +111,7 @@ sequenceDiagram
     actor Op as Almoxarife (Leitor Barcode / Balcão)
     participant UI as Frontend (Vue 3 / Pinia)
     participant GW as Dass API Gateway (:2399)
-    participant API as Backend Coletores (:3050)
+    participant API as Backend Coletores (:3131)
     participant DB as PostgreSQL (dass-postgres:5432)
 
     Op->>UI: Bipa Crachá do Colaborador (Devolução)

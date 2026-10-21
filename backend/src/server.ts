@@ -6,7 +6,7 @@ import { createApp } from './app';
 import { connectDatabase } from './config/database';
 import { AuthService } from './modules/auth/auth.service';
 
-const PORT = Number(process.env.PORT || 3050);
+const PORT = Number(process.env.PORT || 3131);
 
 const bootstrap = async () => {
   try {

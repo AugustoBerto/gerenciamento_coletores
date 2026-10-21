@@ -18,13 +18,13 @@ Este documento estabelece a arquitetura técnica, diretrizes de integração com
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────┐
 │  Dass API Gateway (Porta 2399 - Container Docker)                                                  │
 │  - Registrado em src/config/routes.ts: { prefix: "/api/coletores", service: "COLETORES_SERVICE"}   │
-│  - Path Rewriting: Remove '/api/coletores' ao encaminhar para o backend na porta 3050             │
+│  - Path Rewriting: Remove '/api/coletores' ao encaminhar para o backend na porta 3131             │
 └─────────────────────────────────────┬─────────────────────────────────┬────────────────────────────┘
                                       │                                 │
                (Encaminha /auth/*)    │                                 │ (Encaminha /movimentacoes/*)
                                       ▼                                 ▼
 ┌──────────────────────────────────────────────┐  ┌──────────────────────────────────────────────────┐
-│  Dass Auth Service (Porta 2123)              │  │  Backend Coletores (Porta 3050 - PM2 Nativo)     │
+│  Dass Auth Service (via Gateway :2399)       │  │  Backend Coletores (Porta 3131 - PM2 Nativo)     │
 │  - SSO Corporativo DASS                      │  │  - Node.js + Express + TypeScript                │
 │  - Validação de credenciais de operadores    │  │  - Pool de Conexões Otimizado (max: 20)          │
 │  - Emissão de tokens JWT corporativos        │  │  - Cache em Memória de Parâmetros de SLA (1 min) │
@@ -59,7 +59,7 @@ gerenciamento_coletores/
 ├── sql/
 │   └── init.sql                           # Script DDL canônico do schema gestao_coletores
 │
-├── backend/                               # API RESTful (Porta 3050 - Gerenciada via PM2)
+├── backend/                               # API RESTful (Porta 3131 - Gerenciada via PM2)
 │   ├── src/
 │   │   ├── config/                        # database.ts (Pool & DATABASE_URL)
 │   │   ├── database/
@@ -75,7 +75,7 @@ gerenciamento_coletores/
 │   │   │   ├── errors/                    # AppError customizado com códigos padronizados
 │   │   │   └── middlewares/               # authMiddleware, requireTI, requireAdmin, errorHandler
 │   │   ├── app.ts                         # Configuração do Express
-│   │   └── server.ts                      # Bootstrap e seed do suporte.ti na porta 3050
+│   │   └── server.ts                      # Bootstrap e seed do suporte.ti na porta 3131
 │   ├── ecosystem.config.cjs               # Configuração do processo no PM2
 │   ├── package.json
 │   ├── tsconfig.json
@@ -204,7 +204,7 @@ O processo do Node.js é gerenciado pelo PM2 com reinicialização automática e
          max_memory_restart: '350M',
          env: {
            NODE_ENV: 'production',
-           PORT: 3050,
+           PORT: 3131,
          },
        },
      ],
@@ -244,8 +244,8 @@ O processo do Node.js é gerenciado pelo PM2 com reinicialização automática e
 
        # Encaminhamento de API para o Backend Node.js
        ProxyPreserveHost On
-       ProxyPass /api/coletores http://127.0.0.1:3050
-       ProxyPassReverse /api/coletores http://127.0.0.1:3050
+       ProxyPass /api/coletores http://127.0.0.1:3131
+       ProxyPassReverse /api/coletores http://127.0.0.1:3131
 
        ErrorLog ${APACHE_LOG_DIR}/coletores_error.log
        CustomLog ${APACHE_LOG_DIR}/coletores_access.log combined
@@ -266,7 +266,7 @@ O processo do Node.js é gerenciado pelo PM2 com reinicialização automática e
 ### 6.1 Backend (`backend/.env`)
 ```ini
 NODE_ENV=production
-PORT=3050
+PORT=3131
 
 # Conexão com o PostgreSQL Corporativo
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
@@ -274,11 +274,11 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:5432/postgres
 # Chave compartilhada para assinatura e validação de JWTs
 JWT_SECRET=dass-auth-local-development-jwt-secret-2026
 
-# URL do serviço de autenticação central DASS (acessível pelo backend)
-DASS_AUTH_URL=http://127.0.0.1:2123
+# URL do serviço de autenticação central DASS (roteado pelo Gateway na porta 2399)
+DASS_AUTH_URL=http://127.0.0.1:2399/api
 
 # Origens permitidas para CORS (Gateway e servidores Apache)
-CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:2399,http://coletores.fabrica.dass
+CORS_ALLOWED_ORIGINS=http://localhost:5173,http://localhost:5174,http://localhost:2399,http://coletores.fabrica.dass
 ```
 
 ### 6.2 Frontend (`frontend/.env`)

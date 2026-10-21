@@ -286,7 +286,7 @@ O sistema conta com quatro perfis de participantes:
 
 ## 6. Arquitetura Tecnológica e Integração DASS
 
-* **Roteamento Unificado via Gateway:** todas as chamadas de frontend passam pelo **Dass API Gateway** na porta `2399` através da rota `/api/coletores/*`. O gateway realiza *path rewriting* e entrega as requisições ao backend Node.js na porta `3050`.
+* **Roteamento Unificado via Gateway:** todas as chamadas de frontend passam pelo **Dass API Gateway** na porta `2399` através da rota `/api/coletores/*`. O gateway realiza *path rewriting* e entrega as requisições ao backend Node.js na porta `3131`.
 * **Banco de Dados PostgreSQL:**
   * Schema isolado `gestao_coletores`;
   * Conexão padronizada por variável de ambiente `DATABASE_URL`;

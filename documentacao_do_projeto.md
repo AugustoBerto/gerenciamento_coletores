@@ -98,7 +98,7 @@ A aplicação adota separação estrita de camadas e está integrada ao ecossist
 | **Backend** | Node.js + Express + TypeScript | API RESTful com rotas seguras, transações atômicas com lock pessimista via `QueryRunner` e cache de SLA em memória. |
 | **ORM & Conexão** | TypeORM via `DATABASE_URL` | Conexão padronizada com pool de conexões otimizado (`max: 20`, timeouts de ociosidade). |
 | **Banco de Dados** | PostgreSQL (`dass-postgres:5432`) | Schema isolado `gestao_coletores`, integrado às tabelas corporativas `colaborador` (crachás) e `autenticacao` (usuários). |
-| **Deploy em Produção** | **PM2 + Apache** (Nativo sem Docker) | Backend gerenciado pelo PM2 na porta `3050`; Apache servindo o frontend estático e proxy reverso. |
+| **Deploy em Produção** | **PM2 + Apache** (Nativo sem Docker) | Backend gerenciado pelo PM2 na porta `3131`; Apache servindo o frontend estático e proxy reverso. |
 
 ---
 
