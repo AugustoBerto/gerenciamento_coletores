@@ -241,8 +241,9 @@ const focarInput = () => {
 };
 
 const buscarCustodia = async () => {
-  const id = identificador.value.trim();
+  const id = identificador.value.replace(/[\r\n\t]/g, '').trim();
   if (!id) return;
+  identificador.value = id;
 
   mensagemErro.value = '';
   mensagemSucesso.value = '';

@@ -119,41 +119,9 @@ export class MovimentacoesService {
   }
 
   public static async buscarAtivaPorColaborador(identificadorRaw: string): Promise<any> {
-    const identificador = String(identificadorRaw || '').trim();
-    if (!identificador) {
-      throw new AppError('Informe o código do crachá, matrícula ou RFID do colaborador.', 400, 'PARAMETRO_OBRIGATORIO');
-    }
-
-    const numericCode = /^\d+$/.test(identificador) ? BigInt(identificador) : null;
-
-    // 1. Busca colaborador na base corporativa
-    const query = `
-      SELECT 
-        c.matricula, 
-        c.nome, 
-        c.codbarras, 
-        c.rfid, 
-        COALESCE(l.nome_setor, 'Setor Operacional') AS setor, 
-        COALESCE(l.funcao, 'Operador') AS funcao
-      FROM colaborador.colaboradores c
-      LEFT JOIN colaborador.lista_funcionario l ON l.matricula = c.matricula
-      WHERE c.codbarras = $1 
-         OR c.rfid = $1
-         OR ($2::bigint IS NOT NULL AND c.matricula = $2)
-      LIMIT 1;
-    `;
-
-    const results = await AppDataSource.query(query, [
-      numericCode ? numericCode.toString() : identificador,
-      numericCode ? numericCode.toString() : null,
-    ]);
-
-    if (!results || results.length === 0) {
-      throw new AppError('Crachá ou matrícula não localizada na base corporativa da fábrica.', 404, 'COLABORADOR_NAO_ENCONTRADO');
-    }
-
-    const colab = results[0];
-    const matricula = Number(colab.matricula);
+    // 1. Busca colaborador na base corporativa com algoritmo otimizado e resiliente
+    const colab = await ColaboradoresService.buscarColaboradorCorporativo(identificadorRaw);
+    const matricula = colab.matricula;
 
     // 2. Busca custódia aberta na tabela movimentacoes
     const movRepo = AppDataSource.getRepository(Movimentacao);

@@ -310,8 +310,9 @@ const focarColetor = () => {
 };
 
 const processarCracha = async () => {
-  const codigo = cracha.value.trim();
+  const codigo = cracha.value.replace(/[\r\n\t]/g, '').trim();
   if (!codigo) return;
+  cracha.value = codigo;
 
   mensagemErro.value = '';
   mensagemSucesso.value = '';
@@ -338,8 +339,9 @@ const selecionarColetorGrid = (coletor: any) => {
 };
 
 const processarRetiradaPorBipe = async () => {
-  const pat = patrimonioBipe.value.trim();
+  const pat = patrimonioBipe.value.replace(/[\r\n\t]/g, '').trim();
   if (!pat) return;
+  patrimonioBipe.value = pat;
 
   const encontrado = coletoresDisponiveis.value.find((c) => c.patrimonio === pat);
   if (encontrado) {
