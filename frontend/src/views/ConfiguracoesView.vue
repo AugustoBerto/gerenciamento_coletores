@@ -418,172 +418,176 @@
     </div>
 
     <!-- MODAL: CADASTRAR NOVO OPERADOR -->
-    <div
-      v-if="modalNovoUsuarioAberto"
-      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
-    >
-      <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
-        <div class="flex justify-between items-start border-b pb-3">
-          <div>
-            <h3 class="text-base font-extrabold text-gray-900">Cadastrar Operador</h3>
-            <p class="text-xs text-gray-500">Autoriza o usuário corporativo DASS a fazer login no sistema</p>
+    <Teleport to="body">
+      <div
+        v-if="modalNovoUsuarioAberto"
+        class="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto"
+      >
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto my-auto">
+          <div class="flex justify-between items-start border-b pb-3">
+            <div>
+              <h3 class="text-base font-extrabold text-gray-900">Cadastrar Operador</h3>
+              <p class="text-xs text-gray-500">Autoriza o usuário corporativo DASS a fazer login no sistema</p>
+            </div>
+            <button @click="modalNovoUsuarioAberto = false" class="text-gray-400 hover:text-gray-700 text-lg leading-none">
+              &times;
+            </button>
           </div>
-          <button @click="modalNovoUsuarioAberto = false" class="text-gray-400 hover:text-gray-700 text-lg leading-none">
-            &times;
-          </button>
-        </div>
 
-        <div v-if="erroModal" class="p-3 rounded-lg bg-red-50 border border-red-300 text-red-700 text-xs font-bold">
-          {{ erroModal }}
-        </div>
+          <div v-if="erroModal" class="p-3 rounded-lg bg-red-50 border border-red-300 text-red-700 text-xs font-bold">
+            {{ erroModal }}
+          </div>
 
-        <form @submit.prevent="confirmarCadastroUsuario" class="space-y-4">
-          <!-- Campo de Busca Prévia -->
-          <div>
-            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-              Usuário Corporativo ou Matrícula*
-            </label>
-            <div class="flex gap-2">
-              <input
-                v-model="inputBuscaCorporativa"
-                type="text"
-                required
-                placeholder="Ex: jose.falcao ou 3023093"
-                class="flex-1 p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
-                @keydown.enter.prevent="consultarDadosCorporativos"
-              />
+          <form @submit.prevent="confirmarCadastroUsuario" class="space-y-4">
+            <!-- Campo de Busca Prévia -->
+            <div>
+              <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                Usuário Corporativo ou Matrícula*
+              </label>
+              <div class="flex gap-2">
+                <input
+                  v-model="inputBuscaCorporativa"
+                  type="text"
+                  required
+                  placeholder="Ex: jose.falcao ou 3023093"
+                  class="flex-1 p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+                  @keydown.enter.prevent="consultarDadosCorporativos"
+                />
+                <button
+                  type="button"
+                  :disabled="loadingConsultaCorp || !inputBuscaCorporativa.trim()"
+                  @click="consultarDadosCorporativos"
+                  class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl disabled:opacity-50 transition"
+                >
+                  {{ loadingConsultaCorp ? 'Buscando...' : 'Consultar' }}
+                </button>
+              </div>
+            </div>
+
+            <!-- Preview do Usuário Localizado -->
+            <div
+              v-if="usuarioCorporativoLocalizado"
+              class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5"
+            >
+              <div class="text-xs font-black text-gray-900">{{ usuarioCorporativoLocalizado.nome }}</div>
+              <div class="text-[11px] text-gray-600 grid grid-cols-2 gap-2">
+                <div><strong>Usuário:</strong> @{{ usuarioCorporativoLocalizado.usuario }}</div>
+                <div><strong>Matrícula:</strong> {{ usuarioCorporativoLocalizado.matricula }}</div>
+                <div><strong>Cargo:</strong> {{ usuarioCorporativoLocalizado.cargo }}</div>
+                <div><strong>Setor:</strong> {{ usuarioCorporativoLocalizado.setor }}</div>
+              </div>
+            </div>
+
+            <!-- Seleção do Papel -->
+            <div>
+              <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                Papel / Nível de Acesso*
+              </label>
+              <select
+                v-model="novoUsuarioPapel"
+                class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49] bg-white font-bold text-gray-800"
+              >
+                <option value="OPERADOR">OPERADOR (Check-out, Check-in, Solicitar Manutenção)</option>
+                <option v-if="authStore.isTI" value="TI">TI (Gestão Técnica de Manutenção e TI)</option>
+                <option v-if="authStore.isAdmin" value="ADMIN">ADMIN (Controle total de Usuários e Parâmetros)</option>
+              </select>
+              <p v-if="authStore.isAdmin" class="text-[11px] text-gray-400 mt-1">
+                * Apenas usuários do perfil de TI podem cadastrar novos técnicos de TI.
+              </p>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t">
               <button
                 type="button"
-                :disabled="loadingConsultaCorp || !inputBuscaCorporativa.trim()"
-                @click="consultarDadosCorporativos"
-                class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl disabled:opacity-50 transition"
+                @click="modalNovoUsuarioAberto = false"
+                class="px-4 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
               >
-                {{ loadingConsultaCorp ? 'Buscando...' : 'Consultar' }}
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                :disabled="loadingSalvarUsuario || !usuarioCorporativoLocalizado"
+                class="px-5 py-2 bg-[#002B49] hover:bg-slate-800 text-white rounded-xl text-xs font-bold disabled:opacity-40 transition shadow-sm"
+              >
+                {{ loadingSalvarUsuario ? 'Cadastrando...' : 'Confirmar Cadastro' }}
               </button>
             </div>
-          </div>
-
-          <!-- Preview do Usuário Localizado -->
-          <div
-            v-if="usuarioCorporativoLocalizado"
-            class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-1.5"
-          >
-            <div class="text-xs font-black text-gray-900">{{ usuarioCorporativoLocalizado.nome }}</div>
-            <div class="text-[11px] text-gray-600 grid grid-cols-2 gap-2">
-              <div><strong>Usuário:</strong> @{{ usuarioCorporativoLocalizado.usuario }}</div>
-              <div><strong>Matrícula:</strong> {{ usuarioCorporativoLocalizado.matricula }}</div>
-              <div><strong>Cargo:</strong> {{ usuarioCorporativoLocalizado.cargo }}</div>
-              <div><strong>Setor:</strong> {{ usuarioCorporativoLocalizado.setor }}</div>
-            </div>
-          </div>
-
-          <!-- Seleção do Papel -->
-          <div>
-            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-              Papel / Nível de Acesso*
-            </label>
-            <select
-              v-model="novoUsuarioPapel"
-              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49] bg-white font-bold text-gray-800"
-            >
-              <option value="OPERADOR">OPERADOR (Check-out, Check-in, Solicitar Manutenção)</option>
-              <option v-if="authStore.isTI" value="TI">TI (Gestão Técnica de Manutenção e TI)</option>
-              <option v-if="authStore.isAdmin" value="ADMIN">ADMIN (Controle total de Usuários e Parâmetros)</option>
-            </select>
-            <p v-if="authStore.isAdmin" class="text-[11px] text-gray-400 mt-1">
-              * Apenas usuários do perfil de TI podem cadastrar novos técnicos de TI.
-            </p>
-          </div>
-
-          <div class="flex justify-end gap-2 pt-3 border-t">
-            <button
-              type="button"
-              @click="modalNovoUsuarioAberto = false"
-              class="px-4 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              :disabled="loadingSalvarUsuario || !usuarioCorporativoLocalizado"
-              class="px-5 py-2 bg-[#002B49] hover:bg-slate-800 text-white rounded-xl text-xs font-bold disabled:opacity-40 transition shadow-sm"
-            >
-              {{ loadingSalvarUsuario ? 'Cadastrando...' : 'Confirmar Cadastro' }}
-            </button>
-          </div>
-        </form>
+          </form>
+        </div>
       </div>
-    </div>
+    </Teleport>
 
     <!-- MODAL: CADASTRAR / EDITAR SETOR -->
-    <div
-      v-if="modalSetorAberto"
-      class="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4 backdrop-blur-xs"
-    >
-      <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4">
-        <div class="flex justify-between items-start border-b pb-3">
-          <div>
-            <h3 class="text-base font-extrabold text-gray-900">
-              {{ setorEmEdicao ? 'Editar Setor de Localização' : 'Novo Setor de Localização' }}
-            </h3>
-            <p class="text-xs text-gray-500">Defina a área fabril para rastreabilidade dos coletores</p>
-          </div>
-          <button @click="modalSetorAberto = false" class="text-gray-400 hover:text-gray-700 text-lg leading-none">
-            &times;
-          </button>
-        </div>
-
-        <div v-if="erroModalSetor" class="p-3 rounded-lg bg-red-50 border border-red-300 text-red-700 text-xs font-bold">
-          {{ erroModalSetor }}
-        </div>
-
-        <form @submit.prevent="confirmarSalvarSetor" class="space-y-4">
-          <div>
-            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-              Nome do Setor*
-            </label>
-            <input
-              v-model="formSetor.nome"
-              type="text"
-              required
-              maxlength="80"
-              placeholder="Ex: Expedição, Linha de Montagem, Almoxarifado"
-              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
-            />
-          </div>
-
-          <div>
-            <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
-              Descrição / Finalidade (Opcional)
-            </label>
-            <textarea
-              v-model="formSetor.descricao"
-              rows="3"
-              maxlength="255"
-              placeholder="Ex: Área de conferência, expedição ou carregamento"
-              class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
-            ></textarea>
-          </div>
-
-          <div class="flex justify-end gap-2 pt-3 border-t">
-            <button
-              type="button"
-              @click="modalSetorAberto = false"
-              class="px-4 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              :disabled="loadingSalvarSetor || !formSetor.nome.trim()"
-              class="px-5 py-2 bg-[#002B49] hover:bg-slate-800 text-white rounded-xl text-xs font-bold disabled:opacity-40 transition shadow-sm"
-            >
-              {{ loadingSalvarSetor ? 'Salvando...' : 'Salvar Setor' }}
+    <Teleport to="body">
+      <div
+        v-if="modalSetorAberto"
+        class="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto"
+      >
+        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto my-auto">
+          <div class="flex justify-between items-start border-b pb-3">
+            <div>
+              <h3 class="text-base font-extrabold text-gray-900">
+                {{ setorEmEdicao ? 'Editar Setor de Localização' : 'Novo Setor de Localização' }}
+              </h3>
+              <p class="text-xs text-gray-500">Defina a área fabril para rastreabilidade dos coletores</p>
+            </div>
+            <button @click="modalSetorAberto = false" class="text-gray-400 hover:text-gray-700 text-lg leading-none">
+              &times;
             </button>
           </div>
-        </form>
+
+          <div v-if="erroModalSetor" class="p-3 rounded-lg bg-red-50 border border-red-300 text-red-700 text-xs font-bold">
+            {{ erroModalSetor }}
+          </div>
+
+          <form @submit.prevent="confirmarSalvarSetor" class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                Nome do Setor*
+              </label>
+              <input
+                v-model="formSetor.nome"
+                type="text"
+                required
+                maxlength="80"
+                placeholder="Ex: Expedição, Linha de Montagem, Almoxarifado"
+                class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+              />
+            </div>
+
+            <div>
+              <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                Descrição / Finalidade (Opcional)
+              </label>
+              <textarea
+                v-model="formSetor.descricao"
+                rows="3"
+                maxlength="255"
+                placeholder="Ex: Área de conferência, expedição ou carregamento"
+                class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+              ></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                @click="modalSetorAberto = false"
+                class="px-4 py-2 border border-gray-300 rounded-xl text-xs font-bold text-gray-600 hover:bg-gray-100"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                :disabled="loadingSalvarSetor || !formSetor.nome.trim()"
+                class="px-5 py-2 bg-[#002B49] hover:bg-slate-800 text-white rounded-xl text-xs font-bold disabled:opacity-40 transition shadow-sm"
+              >
+                {{ loadingSalvarSetor ? 'Salvando...' : 'Salvar Setor' }}
+              </button>
+            </div>
+          </form>
+        </div>
       </div>
-    </div>
+    </Teleport>
   </div>
 </template>
 

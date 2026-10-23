@@ -40,7 +40,7 @@ export class ColaboradoresService {
       .trim();
 
     if (!raw) {
-      throw new AppError('Informe o código do crachá, matrícula ou RFID do colaborador.', 400, 'CRACHA_OBRIGATORIO');
+      throw new AppError('Informe o Código de Barras ou aproxime o crachá no leitor RFID do colaborador.', 400, 'CRACHA_OBRIGATORIO');
     }
 
     let numericVal: string | null = null;
@@ -67,20 +67,12 @@ export class ColaboradoresService {
 
     // Se a entrada não for número nem hexadecimal legível, não é possível bater com colunas bigint
     if (!numericVal && !hexDecVal && !strippedVal) {
-      throw new AppError('Crachá ou matrícula não localizada na base corporativa da fábrica.', 404, 'CRACHA_NAO_ENCONTRADO');
+      throw new AppError('Crachá não localizado na base corporativa da fábrica. Bipe o Código de Barras ou aproxime o leitor RFID.', 404, 'CRACHA_NAO_ENCONTRADO');
     }
 
     const query = `
       WITH candidato AS (
-        -- 1. Busca por Matrícula direta
-        SELECT matricula, nome, codbarras, rfid
-        FROM colaborador.colaboradores
-        WHERE ($1::bigint IS NOT NULL AND matricula = $1::bigint)
-           OR ($2::bigint IS NOT NULL AND matricula = $2::bigint)
-
-        UNION ALL
-
-        -- 2. Busca por Código de Barras
+        -- 1. Busca exclusiva por Código de Barras (exato ou sem zeros à esquerda)
         SELECT matricula, nome, codbarras, rfid
         FROM colaborador.colaboradores
         WHERE ($1::bigint IS NOT NULL AND codbarras = $1::bigint)
@@ -88,7 +80,7 @@ export class ColaboradoresService {
 
         UNION ALL
 
-        -- 3. Busca por RFID (decimal nativo ou convertido de hexadecimal)
+        -- 2. Busca exclusiva por RFID (decimal nativo ou convertido de hexadecimal)
         SELECT matricula, nome, codbarras, rfid
         FROM colaborador.colaboradores
         WHERE ($1::bigint IS NOT NULL AND rfid = $1::bigint)
@@ -118,7 +110,30 @@ export class ColaboradoresService {
     const results = await AppDataSource.query(query, params);
 
     if (!results || results.length === 0) {
-      throw new AppError('Crachá ou matrícula não localizada na base corporativa da fábrica.', 404, 'CRACHA_NAO_ENCONTRADO');
+      // Verificação preventiva: o operador tentou digitar uma matrícula?
+      if (numericVal || strippedVal) {
+        const checkMatriculaQuery = `
+          SELECT matricula, nome
+          FROM colaborador.colaboradores
+          WHERE ($1::bigint IS NOT NULL AND matricula = $1::bigint)
+             OR ($2::bigint IS NOT NULL AND matricula = $2::bigint)
+          LIMIT 1;
+        `;
+        const resMat = await AppDataSource.query(checkMatriculaQuery, [numericVal, strippedVal]);
+        if (resMat && resMat.length > 0) {
+          throw new AppError(
+            'O uso de matrícula não é permitido para check-in ou check-out. Por favor, bipe o Código de Barras ou aproxime o crachá no leitor RFID.',
+            400,
+            'MATRICULA_NAO_PERMITIDA'
+          );
+        }
+      }
+
+      throw new AppError(
+        'Crachá não localizado na base corporativa da fábrica. Bipe o Código de Barras ou aproxime o leitor RFID.',
+        404,
+        'CRACHA_NAO_ENCONTRADO'
+      );
     }
 
     const colab = results[0];
@@ -132,12 +147,33 @@ export class ColaboradoresService {
     };
   }
 
-  public static async validarCracha(codigoRaw: string): Promise<ColaboradorInfo> {
-    // 1. Busca ultra-otimizada na base corporativa
-    const colab = await this.buscarColaboradorCorporativo(codigoRaw);
-    const matricula = colab.matricula;
+  public static async validarPorMatricula(matricula: number): Promise<ColaboradorInfo> {
+    if (!matricula || isNaN(matricula)) {
+      throw new AppError('Matrícula do colaborador inválida.', 400, 'MATRICULA_INVALIDA');
+    }
 
-    // 2. Verifica se possui bloqueio preventivo do almoxarifado
+    const query = `
+      SELECT 
+        c.matricula, 
+        c.nome, 
+        c.codbarras, 
+        c.rfid, 
+        COALESCE(l.nome_setor, 'Setor Operacional') AS setor, 
+        COALESCE(l.funcao, 'Operador') AS funcao
+      FROM colaborador.colaboradores c
+      LEFT JOIN colaborador.lista_funcionario l ON l.matricula = c.matricula
+      WHERE c.matricula = $1::bigint
+      LIMIT 1;
+    `;
+
+    const results = await AppDataSource.query(query, [matricula]);
+    if (!results || results.length === 0) {
+      throw new AppError('Colaborador não localizado na base corporativa.', 404, 'COLABORADOR_NAO_ENCONTRADO');
+    }
+
+    const colab = results[0];
+
+    // 1. Verifica se possui bloqueio preventivo do almoxarifado
     const bloqueioRepo = AppDataSource.getRepository(BloqueioColaborador);
     const bloqueioAtivo = await bloqueioRepo.findOne({
       where: { matricula, ativo: true },
@@ -152,7 +188,7 @@ export class ColaboradoresService {
       );
     }
 
-    // 3. Verifica se já possui coletor em custódia aberta (Trava 1:1)
+    // 2. Verifica se já possui coletor em custódia aberta (Trava 1:1)
     const movRepo = AppDataSource.getRepository(Movimentacao);
     const custodiaAberta = await movRepo.findOne({
       where: { matriculaColaborador: matricula, dataRetorno: IsNull() },
@@ -177,11 +213,19 @@ export class ColaboradoresService {
 
     return {
       matricula,
-      nome: colab.nome,
-      setor: colab.setor,
-      funcao: colab.funcao,
+      nome: String(colab.nome || 'Colaborador'),
+      setor: String(colab.setor || 'Setor Operacional'),
+      funcao: String(colab.funcao || 'Operador'),
       apto: true,
     };
+  }
+
+  public static async validarCracha(codigoRaw: string): Promise<ColaboradorInfo> {
+    // 1. Busca ultra-otimizada na base corporativa exclusiva por Código de Barras ou RFID
+    const colab = await this.buscarColaboradorCorporativo(codigoRaw);
+
+    // 2. Valida elegibilidade e travas pela matrícula identificada
+    return this.validarPorMatricula(colab.matricula);
   }
 
   public static async listarBloqueios(): Promise<BloqueioColaborador[]> {

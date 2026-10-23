@@ -52,7 +52,7 @@
     <div class="bg-white p-5 sm:p-6 rounded-2xl shadow-sm border border-slate-200 space-y-4">
       <div class="flex justify-between items-center">
         <label class="block text-xs font-extrabold text-slate-700 uppercase tracking-wider">
-          1. Bipar Crachá do Colaborador (Código de Barras ou Matrícula)
+          1. Bipar Crachá do Colaborador (Código de Barras ou RFID)
         </label>
         <button
           v-if="colaboradorApto"
@@ -70,7 +70,7 @@
           type="text"
           autocomplete="off"
           :disabled="loadingCracha || Boolean(colaboradorApto)"
-          placeholder="Aguardando bipe do crachá do colaborador..."
+          placeholder="Aguardando bipe do código de barras ou aproximação RFID..."
           class="w-full px-4 py-3 rounded-xl border-2 font-mono text-sm sm:text-base tracking-wide transition outline-none"
           :class="[
             colaboradorApto

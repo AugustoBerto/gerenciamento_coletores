@@ -61,8 +61,8 @@ export class MovimentacoesService {
       throw new AppError('O patrimônio do coletor deve conter exatamente 7 dígitos numéricos.', 400, 'FORMATO_PATRIMONIO_INVALIDO');
     }
 
-    // 1. Valida elegibilidade do colaborador e trava de custódia
-    const colaborador = await ColaboradoresService.validarCracha(String(matricula));
+    // 1. Valida elegibilidade do colaborador e trava de custódia diretamente pela matrícula
+    const colaborador = await ColaboradoresService.validarPorMatricula(Number(matricula));
 
     // 2. Transação atômica com lock pessimista
     const queryRunner = AppDataSource.createQueryRunner();

@@ -7,7 +7,7 @@
             Devolução de Coletor (Check-in)
           </h2>
           <p class="text-xs text-gray-500 mt-1">
-            Bipe o crachá do colaborador (código de barras, matrícula ou RFID) para identificar o aparelho e concluir a devolução.
+            Bipe o crachá do colaborador (Código de Barras ou RFID) para identificar o aparelho e concluir a devolução.
           </p>
         </div>
       </div>
@@ -43,7 +43,7 @@
         <!-- CAMPO DE IDENTIFICAÇÃO DO COLABORADOR -->
         <div class="space-y-2">
           <label class="block text-xs font-extrabold text-gray-700 uppercase tracking-wider">
-            Bipar Crachá do Colaborador (Código de Barras, Matrícula ou RFID)
+            Bipar Crachá do Colaborador (Código de Barras ou RFID)
           </label>
           <div class="flex gap-2">
             <div class="relative flex-1">
@@ -53,7 +53,7 @@
                 type="text"
                 autocomplete="off"
                 :disabled="loadingBusca || Boolean(custodiaLocalizada)"
-                placeholder="Aguardando bipe do crachá do colaborador..."
+                placeholder="Aguardando bipe do código de barras ou aproximação RFID..."
                 class="w-full px-4 py-3 rounded-xl border-2 font-mono text-sm sm:text-base tracking-wide transition outline-none"
                 :class="[
                   custodiaLocalizada
