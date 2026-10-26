@@ -23,6 +23,8 @@ export interface CustodiaAtiva {
   tempoFormatado: string;
   statusSLA: 'NORMAL' | 'ALERTA' | 'EXCEDIDO';
   minutosExcedidos: number;
+  tipoPreferencia?: 'TITULAR' | 'LIVRE' | 'FORA_PREFERENCIA';
+  detalhePreferencia?: string | null;
 }
 
 export interface MetricasDashboard {

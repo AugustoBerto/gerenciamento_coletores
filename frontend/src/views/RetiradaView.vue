@@ -155,19 +155,67 @@
       <!-- Card do Colaborador Identificado -->
       <div
         v-if="colaboradorApto"
-        class="bg-gradient-to-r from-slate-50 to-emerald-50/40 border border-emerald-200 p-4 rounded-xl flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3"
+        class="bg-gradient-to-r from-slate-50 to-emerald-50/40 border border-emerald-200 p-4 rounded-xl space-y-3"
       >
-        <div>
-          <div class="text-xs font-bold uppercase text-emerald-700 tracking-wider">Colaborador Titular</div>
-          <div class="text-sm sm:text-base font-black text-slate-900">{{ colaboradorApto.nome }}</div>
-          <div class="text-xs text-slate-600 flex flex-wrap gap-x-4 gap-y-1 mt-0.5">
-            <span><strong>Matrícula:</strong> {{ colaboradorApto.matricula }}</span>
-            <span><strong>Setor:</strong> {{ colaboradorApto.setor }}</span>
-            <span><strong>Função:</strong> {{ colaboradorApto.funcao }}</span>
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+          <div>
+            <div class="text-xs font-bold uppercase text-emerald-700 tracking-wider">Colaborador Recebedor</div>
+            <div class="text-sm sm:text-base font-black text-slate-900">{{ colaboradorApto.nome }}</div>
+            <div class="text-xs text-slate-600 flex flex-wrap gap-x-4 gap-y-1 mt-0.5">
+              <span><strong>Matrícula:</strong> {{ colaboradorApto.matricula }}</span>
+              <span><strong>Setor:</strong> {{ colaboradorApto.setor }}</span>
+              <span><strong>Função:</strong> {{ colaboradorApto.funcao }}</span>
+            </div>
+          </div>
+          <div class="text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
+            Pronto para retirada
           </div>
         </div>
-        <div class="text-xs font-bold text-emerald-700 bg-emerald-100 px-3 py-1 rounded-full">
-          Pronto para retirada
+
+        <!-- Indicação de Coletor(es) Preferencial(is) do Colaborador -->
+        <div
+          v-if="colaboradorApto.coletoresPreferenciais && colaboradorApto.coletoresPreferenciais.length > 0"
+          class="pt-2.5 border-t border-emerald-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs"
+        >
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
+              Preferência por Turno:
+            </span>
+            <div
+              v-for="pref in colaboradorApto.coletoresPreferenciais"
+              :key="`${pref.coletorId}-${pref.turno}`"
+              class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-medium"
+              :class="
+                pref.status === 'DISPONIVEL'
+                  ? 'bg-white border-emerald-300 text-slate-800 shadow-2xs'
+                  : 'bg-amber-50/80 border-amber-200 text-amber-900'
+              "
+            >
+              <span class="text-amber-500 font-black">★</span>
+              <span class="font-mono font-black text-slate-900">{{ pref.patrimonio }}</span>
+              <span class="text-[11px] text-slate-500">({{ pref.turno }}º Turno)</span>
+              <span
+                class="text-[10px] font-bold px-1.5 py-0.5 rounded"
+                :class="
+                  pref.status === 'DISPONIVEL'
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : pref.status === 'EM_USO'
+                    ? 'bg-blue-100 text-blue-800'
+                    : 'bg-amber-200/70 text-amber-900'
+                "
+              >
+                {{
+                  pref.status === 'DISPONIVEL'
+                    ? 'Disponível (Pré-selecionado)'
+                    : pref.status === 'EM_USO'
+                    ? 'Em uso no momento'
+                    : pref.status === 'MANUTENCAO'
+                    ? 'Em manutenção'
+                    : pref.status
+                }}
+              </span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -239,12 +287,18 @@
               : 'border-slate-200 hover:border-slate-400 bg-white hover:bg-slate-50',
           ]"
         >
-          <div>
-            <div class="flex justify-between items-start">
+          <div class="flex-1">
+            <div class="flex justify-between items-start gap-1">
               <span class="font-mono text-sm font-black text-slate-900 group-hover:text-blue-900">
                 {{ c.patrimonio }}
               </span>
-              <span class="w-2 h-2 rounded-full bg-emerald-500 mt-1"></span>
+              <span
+                v-if="ehColetorPreferencialDoColaborador(c)"
+                class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black uppercase"
+              >
+                ★ {{ obterTurnoDoColaboradorNoColetor(c) }}ºT
+              </span>
+              <span v-else class="w-2 h-2 rounded-full bg-emerald-500 mt-1"></span>
             </div>
             <div class="text-xs font-semibold text-slate-700 mt-1 leading-tight">
               {{ c.marca }} {{ c.modelo }}
@@ -261,6 +315,23 @@
                 {{ c.numeroSerie || 'S/N' }}
               </span>
             </div>
+
+            <!-- Titulares por Turno no Card -->
+            <div v-if="c.titulares && c.titulares.length > 0" class="mt-2 pt-1.5 border-t border-slate-100 flex flex-wrap gap-1">
+              <span
+                v-for="t in c.titulares"
+                :key="t.turno"
+                :title="`${t.turno}º Turno: ${t.nomeColaborador}`"
+                class="text-[9px] px-1.5 py-0.5 rounded font-semibold truncate max-w-full"
+                :class="
+                  colaboradorApto && Number(t.matriculaColaborador) === Number(colaboradorApto.matricula)
+                    ? 'bg-emerald-100 text-emerald-900 border border-emerald-300 font-bold'
+                    : 'bg-slate-100 text-slate-600'
+                "
+              >
+                {{ t.turno }}ºT: {{ resumirNomeCurto(t.nomeColaborador) }}
+              </span>
+            </div>
           </div>
 
           <div class="mt-3 pt-2 border-t border-slate-100 text-right">
@@ -271,6 +342,25 @@
               {{ coletorSelecionado?.id === c.id ? '✓ Selecionado' : 'Clique para escolher' }}
             </span>
           </div>
+        </div>
+      </div>
+
+      <!-- Aviso Discreto de Preferência / Titularidade (Não bloqueante) -->
+      <div
+        v-if="avisoPreferenciaSelecionado"
+        class="p-3 rounded-xl border text-xs flex items-start gap-2"
+        :class="
+          avisoPreferenciaSelecionado.tipo === 'TITULAR'
+            ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
+            : 'bg-amber-50/70 border-amber-200 text-amber-900'
+        "
+      >
+        <span class="font-black text-sm leading-none mt-0.5">
+          {{ avisoPreferenciaSelecionado.tipo === 'TITULAR' ? '★' : 'ℹ' }}
+        </span>
+        <div>
+          <span class="font-bold">{{ avisoPreferenciaSelecionado.titulo }}:</span>
+          <span class="ml-1">{{ avisoPreferenciaSelecionado.detalhe }}</span>
         </div>
       </div>
 
@@ -337,17 +427,99 @@ const loadingColetores = ref(false);
 const mensagemErro = ref('');
 const mensagemSucesso = ref('');
 
+const ehColetorPreferencialDoColaborador = (coletor: any): boolean => {
+  if (!colaboradorApto.value || !coletor?.titulares) return false;
+  return coletor.titulares.some(
+    (t: any) => Number(t.matriculaColaborador) === Number(colaboradorApto.value.matricula)
+  );
+};
+
+const obterTurnoDoColaboradorNoColetor = (coletor: any): number | null => {
+  if (!colaboradorApto.value || !coletor?.titulares) return null;
+  const titular = coletor.titulares.find(
+    (t: any) => Number(t.matriculaColaborador) === Number(colaboradorApto.value.matricula)
+  );
+  return titular ? titular.turno : null;
+};
+
+const resumirNomeCurto = (nomeCompleto?: string) => {
+  if (!nomeCompleto) return '-';
+  const partes = nomeCompleto.trim().split(/\s+/);
+  if (partes.length === 1) return partes[0];
+  return `${partes[0]} ${partes[partes.length - 1][0]}.`;
+};
+
+const avisoPreferenciaSelecionado = computed(() => {
+  if (!colaboradorApto.value || !coletorSelecionado.value) return null;
+
+  const c =
+    coletoresDisponiveis.value.find((item) => item.patrimonio === coletorSelecionado.value.patrimonio) ||
+    coletorSelecionado.value;
+
+  const turnoTitular = obterTurnoDoColaboradorNoColetor(c);
+  if (turnoTitular) {
+    return {
+      tipo: 'TITULAR',
+      titulo: 'Coletor Preferencial do Colaborador',
+      detalhe: `Vinculado como titular do ${turnoTitular}º turno neste coletor.`,
+    };
+  }
+
+  const titularesColetor = Array.isArray(c.titulares) ? c.titulares : [];
+  const prefsColab = Array.isArray(colaboradorApto.value.coletoresPreferenciais)
+    ? colaboradorApto.value.coletoresPreferenciais
+    : [];
+
+  if (titularesColetor.length === 0 && prefsColab.length === 0) {
+    return null;
+  }
+
+  const partes: string[] = [];
+  if (titularesColetor.length > 0) {
+    const desc = titularesColetor
+      .map((t: any) => `${t.turno}ºT: ${resumirNomeCurto(t.nomeColaborador)}`)
+      .join(', ');
+    partes.push(`Coletor vinculado a [${desc}]`);
+  }
+  if (prefsColab.length > 0) {
+    const descColab = prefsColab
+      .map((p: any) => `${p.patrimonio} (${p.turno}ºT - ${p.status})`)
+      .join(', ');
+    partes.push(`Preferencial do colaborador: ${descColab}`);
+  }
+
+  return {
+    tipo: 'FORA_PREFERENCIA',
+    titulo: 'Retirada fora da preferência (informativo)',
+    detalhe: `${partes.join(' | ')}. A liberação é permitida e será registrada para fins de auditoria.`,
+  };
+});
+
 const coletoresFiltrados = computed(() => {
   const termo = filtroGrid.value.trim().toLowerCase();
-  if (!termo) return coletoresDisponiveis.value;
-  return coletoresDisponiveis.value.filter(
-    (c) =>
-      c.patrimonio.toLowerCase().includes(termo) ||
-      c.marca.toLowerCase().includes(termo) ||
-      c.modelo.toLowerCase().includes(termo) ||
-      (c.numeroSerie && c.numeroSerie.toLowerCase().includes(termo)) ||
-      (c.setor?.nome && c.setor.nome.toLowerCase().includes(termo))
-  );
+  const base = !termo
+    ? [...coletoresDisponiveis.value]
+    : coletoresDisponiveis.value.filter(
+        (c) =>
+          c.patrimonio.toLowerCase().includes(termo) ||
+          c.marca.toLowerCase().includes(termo) ||
+          c.modelo.toLowerCase().includes(termo) ||
+          (c.numeroSerie && c.numeroSerie.toLowerCase().includes(termo)) ||
+          (c.setor?.nome && c.setor.nome.toLowerCase().includes(termo)) ||
+          (Array.isArray(c.titulares) &&
+            c.titulares.some((t: any) => t.nomeColaborador?.toLowerCase().includes(termo)))
+      );
+
+  if (colaboradorApto.value) {
+    base.sort((a, b) => {
+      const aPref = ehColetorPreferencialDoColaborador(a) ? 0 : 1;
+      const bPref = ehColetorPreferencialDoColaborador(b) ? 0 : 1;
+      if (aPref !== bPref) return aPref - bPref;
+      return a.patrimonio.localeCompare(b.patrimonio);
+    });
+  }
+
+  return base;
 });
 
 const carregarColetoresDisponiveis = async () => {
@@ -426,6 +598,21 @@ const processarCracha = async () => {
     }
 
     colaboradorApto.value = dados;
+
+    // Se o colaborador possui coletor preferencial disponível, pré-seleciona automaticamente
+    if (Array.isArray(dados.coletoresPreferenciais) && dados.coletoresPreferenciais.length > 0) {
+      const prefDisponivel = dados.coletoresPreferenciais.find((p: any) => p.status === 'DISPONIVEL');
+      if (prefDisponivel) {
+        const encontradoGrid = coletoresDisponiveis.value.find(
+          (c) => c.patrimonio === prefDisponivel.patrimonio
+        );
+        if (encontradoGrid) {
+          coletorSelecionado.value = encontradoGrid;
+          patrimonioBipe.value = encontradoGrid.patrimonio;
+        }
+      }
+    }
+
     playSuccess();
     focarColetor();
   } catch (err: any) {

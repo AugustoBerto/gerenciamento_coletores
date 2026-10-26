@@ -40,7 +40,7 @@
           <input
             v-model="filtroBusca"
             type="text"
-            placeholder="Buscar por patrimônio (7 dígitos), serial, marca ou modelo..."
+            placeholder="Buscar por patrimônio (7 dígitos), serial, marca, modelo ou titular..."
             class="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#002B49]"
             @input="carregarColetores"
           />
@@ -93,9 +93,9 @@
             <thead class="bg-gray-100 text-gray-700 uppercase font-black text-[10px] tracking-wider">
               <tr>
                 <th class="py-3 px-4">Patrimônio</th>
-                <th class="py-3 px-4">Marca</th>
-                <th class="py-3 px-4">Modelo</th>
+                <th class="py-3 px-4">Marca / Modelo</th>
                 <th class="py-3 px-4">Setor</th>
+                <th class="py-3 px-4">Titulares (Turnos)</th>
                 <th class="py-3 px-4">Nº de Série</th>
                 <th class="py-3 px-4">Status</th>
                 <th class="py-3 px-4">Observação / Defeito</th>
@@ -112,10 +112,26 @@
                 <td class="py-3.5 px-4 font-mono font-bold text-gray-900 text-sm">
                   {{ c.patrimonio }}
                 </td>
-                <td class="py-3.5 px-4 font-semibold text-gray-800">{{ c.marca }}</td>
-                <td class="py-3.5 px-4 font-medium text-gray-800">{{ c.modelo }}</td>
+                <td class="py-3.5 px-4">
+                  <div class="font-semibold text-gray-800">{{ c.marca }}</div>
+                  <div class="text-[11px] text-gray-500">{{ c.modelo }}</div>
+                </td>
                 <td class="py-3.5 px-4 text-slate-700 font-medium">
                   {{ c.setor?.nome || 'Geral' }}
+                </td>
+                <td class="py-3.5 px-4">
+                  <div v-if="c.titulares && c.titulares.length > 0" class="flex flex-wrap gap-1">
+                    <span
+                      v-for="t in c.titulares"
+                      :key="t.turno"
+                      :title="`${t.turno}º Turno: ${t.nomeColaborador} (Mat: ${t.matriculaColaborador})`"
+                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200"
+                    >
+                      <span class="font-black text-[#002B49]">{{ t.turno }}ºT:</span>
+                      <span class="truncate max-w-[110px]">{{ resumirNome(t.nomeColaborador) }}</span>
+                    </span>
+                  </div>
+                  <span v-else class="text-gray-400 text-[11px]">Livre</span>
                 </td>
                 <td class="py-3.5 px-4 font-mono text-gray-500 text-[11px]">{{ c.numeroSerie || '-' }}</td>
                 <td class="py-3.5 px-4">
@@ -169,6 +185,17 @@
               <span class="w-2 h-2 rounded-full" :class="getStatusDotClass(c.status)"></span>
               <span>{{ formatarStatus(c.status) }}</span>
             </div>
+          </div>
+
+          <div v-if="c.titulares && c.titulares.length > 0" class="flex flex-wrap gap-1 pt-1">
+            <span
+              v-for="t in c.titulares"
+              :key="t.turno"
+              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200"
+            >
+              <span class="font-black text-[#002B49]">{{ t.turno }}ºT:</span>
+              <span>{{ resumirNome(t.nomeColaborador) }}</span>
+            </span>
           </div>
 
           <div v-if="c.status === 'MANUTENCAO'" class="bg-amber-50 p-2.5 rounded-lg border border-amber-200 text-[11px] text-amber-800 space-y-1">
@@ -236,6 +263,39 @@
             <div>
               <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Última Atualização</span>
               <span class="text-slate-700 text-xs">{{ formatarDataSimples(coletorDetalhes.atualizadoEm) }}</span>
+            </div>
+          </div>
+
+          <!-- Titulares Preferenciais por Turno -->
+          <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2.5">
+            <div class="flex items-center justify-between">
+              <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                Titulares Preferenciais por Turno
+              </span>
+              <span class="text-[10px] text-slate-400">Preferência não bloqueante</span>
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div
+                v-for="turno in [1, 2, 3]"
+                :key="turno"
+                class="p-2.5 rounded-lg border text-xs"
+                :class="
+                  obterTitularPorTurno(coletorDetalhes, turno)
+                    ? 'bg-white border-slate-200 text-slate-800'
+                    : 'bg-slate-100/60 border-dashed border-slate-200 text-slate-400'
+                "
+              >
+                <div class="text-[10px] font-black uppercase text-[#002B49]">{{ turno }}º Turno</div>
+                <template v-if="obterTitularPorTurno(coletorDetalhes, turno)">
+                  <div class="font-bold text-slate-900 truncate mt-0.5" :title="obterTitularPorTurno(coletorDetalhes, turno).nomeColaborador">
+                    {{ obterTitularPorTurno(coletorDetalhes, turno).nomeColaborador }}
+                  </div>
+                  <div class="text-[10px] text-slate-500 font-mono">
+                    Mat: {{ obterTitularPorTurno(coletorDetalhes, turno).matriculaColaborador }}
+                  </div>
+                </template>
+                <div v-else class="text-[11px] italic mt-0.5">Livre</div>
+              </div>
             </div>
           </div>
 
@@ -551,54 +611,56 @@
       </div>
     </Teleport>
 
-    <!-- MODAL: NOVO COLETOR (ADMIN) -->
+    <!-- MODAL: NOVO COLETOR (ADMIN / MONITOR) -->
     <Teleport to="body">
       <div
         v-if="modalNovoColetorAberto"
         class="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto"
       >
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto my-auto">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto my-auto">
           <h3 class="text-base font-extrabold text-gray-900 border-b pb-2">Cadastrar Novo Coletor</h3>
           <form @submit.prevent="salvarNovoColetor" class="space-y-3">
-            <div>
-              <label class="block text-xs font-bold text-gray-700">Patrimônio (7 Dígitos Numéricos)*</label>
-              <input
-                v-model="novoColetor.patrimonio"
-                type="text"
-                maxlength="7"
-                required
-                placeholder="Ex: 1002345"
-                class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
-              />
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-gray-700">Marca*</label>
-              <input
-                v-model="novoColetor.marca"
-                type="text"
-                required
-                placeholder="Ex: Zebra, Honeywell"
-                class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
-              />
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-gray-700">Modelo*</label>
-              <input
-                v-model="novoColetor.modelo"
-                type="text"
-                required
-                placeholder="Ex: TC21, MC3300"
-                class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
-              />
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-gray-700">Número de Série (Opcional)</label>
-              <input
-                v-model="novoColetor.numeroSerie"
-                type="text"
-                placeholder="Ex: 212505230D0090"
-                class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
-              />
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-gray-700">Patrimônio (7 Dígitos)*</label>
+                <input
+                  v-model="novoColetor.patrimonio"
+                  type="text"
+                  maxlength="7"
+                  required
+                  placeholder="Ex: 1002345"
+                  class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-700">Número de Série (Opcional)</label>
+                <input
+                  v-model="novoColetor.numeroSerie"
+                  type="text"
+                  placeholder="Ex: 212505230D0090"
+                  class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-700">Marca*</label>
+                <input
+                  v-model="novoColetor.marca"
+                  type="text"
+                  required
+                  placeholder="Ex: Zebra, Honeywell"
+                  class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-700">Modelo*</label>
+                <input
+                  v-model="novoColetor.modelo"
+                  type="text"
+                  required
+                  placeholder="Ex: TC21, MC3300"
+                  class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+                />
+              </div>
             </div>
             <div>
               <label class="block text-xs font-bold text-gray-700">Setor de Localização (Opcional)</label>
@@ -612,6 +674,61 @@
                 </option>
               </select>
             </div>
+
+            <!-- Titulares Preferenciais por Turno (1º, 2º e 3º Turno) -->
+            <div class="pt-2 border-t border-slate-100 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-800">Titulares Preferenciais por Turno (Opcional)</span>
+                <span class="text-[10px] text-slate-400">Não bloqueia uso por outros</span>
+              </div>
+              <div v-if="erroBuscaTitular" class="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] font-semibold">
+                {{ erroBuscaTitular }}
+              </div>
+              <div class="space-y-2">
+                <div
+                  v-for="turno in ([1, 2, 3] as const)"
+                  :key="turno"
+                  class="p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-extrabold text-[#002B49] uppercase">{{ turno }}º Turno</span>
+                    <button
+                      v-if="titularesForm[turno]"
+                      type="button"
+                      @click="removerTitularForm(turno)"
+                      class="text-[10px] font-bold text-rose-600 hover:underline"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                  <div v-if="titularesForm[turno]" class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs">
+                    <div>
+                      <div class="font-bold text-slate-900">{{ titularesForm[turno]?.nomeColaborador }}</div>
+                      <div class="text-[10px] text-slate-500 font-mono">Matrícula: {{ titularesForm[turno]?.matriculaColaborador }}</div>
+                    </div>
+                    <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Vinculado</span>
+                  </div>
+                  <div v-else class="flex gap-1.5">
+                    <input
+                      v-model="inputTitularTurno[turno]"
+                      type="text"
+                      placeholder="Digite a matrícula ou bipe o crachá..."
+                      class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+                      @keydown.enter.prevent="buscarTitularTurno(turno)"
+                    />
+                    <button
+                      type="button"
+                      :disabled="loadingTitularTurno[turno] || !inputTitularTurno[turno].trim()"
+                      @click="buscarTitularTurno(turno)"
+                      class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-lg disabled:opacity-50 transition"
+                    >
+                      {{ loadingTitularTurno[turno] ? '...' : 'Vincular' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
             <div class="flex justify-end gap-2 pt-3 border-t">
               <button
                 type="button"
@@ -632,13 +749,13 @@
       </div>
     </Teleport>
 
-    <!-- MODAL: EDITAR COLETOR (ADMIN / TI) -->
+    <!-- MODAL: EDITAR COLETOR (ADMIN / TI / MONITOR) -->
     <Teleport to="body">
       <div
         v-if="modalEditarColetorAberto && formEditarColetor"
         class="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto"
       >
-        <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto my-auto">
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto my-auto">
           <div class="flex justify-between items-start border-b pb-2">
             <div>
               <h3 class="text-base font-extrabold text-gray-900">Editar Coletor</h3>
@@ -650,44 +767,103 @@
           </div>
 
           <form @submit.prevent="salvarEdicaoColetor" class="space-y-3">
-            <div>
-              <label class="block text-xs font-bold text-gray-700">Marca*</label>
-              <input
-                v-model="formEditarColetor.marca"
-                type="text"
-                required
-                class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
-              />
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-gray-700">Marca*</label>
+                <input
+                  v-model="formEditarColetor.marca"
+                  type="text"
+                  required
+                  class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-700">Modelo*</label>
+                <input
+                  v-model="formEditarColetor.modelo"
+                  type="text"
+                  required
+                  class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
+                />
+              </div>
             </div>
-            <div>
-              <label class="block text-xs font-bold text-gray-700">Modelo*</label>
-              <input
-                v-model="formEditarColetor.modelo"
-                type="text"
-                required
-                class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49]"
-              />
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-bold text-gray-700">Número de Série</label>
+                <input
+                  v-model="formEditarColetor.numeroSerie"
+                  type="text"
+                  class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+                />
+              </div>
+              <div>
+                <label class="block text-xs font-bold text-gray-700">Setor de Localização</label>
+                <select
+                  v-model="formEditarColetor.setorId"
+                  class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49] bg-white text-gray-800 font-semibold"
+                >
+                  <option :value="null">Nenhum Setor (Geral)</option>
+                  <option v-for="s in setoresAtivos" :key="s.id" :value="s.id">
+                    {{ s.nome }}
+                  </option>
+                </select>
+              </div>
             </div>
-            <div>
-              <label class="block text-xs font-bold text-gray-700">Número de Série</label>
-              <input
-                v-model="formEditarColetor.numeroSerie"
-                type="text"
-                class="w-full p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
-              />
+
+            <!-- Titulares Preferenciais por Turno (1º, 2º e 3º Turno) -->
+            <div class="pt-2 border-t border-slate-100 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-bold text-slate-800">Titulares Preferenciais por Turno</span>
+                <span class="text-[10px] text-slate-400">Não bloqueia uso por outros</span>
+              </div>
+              <div v-if="erroBuscaTitular" class="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] font-semibold">
+                {{ erroBuscaTitular }}
+              </div>
+              <div class="space-y-2">
+                <div
+                  v-for="turno in ([1, 2, 3] as const)"
+                  :key="turno"
+                  class="p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5"
+                >
+                  <div class="flex items-center justify-between">
+                    <span class="text-[11px] font-extrabold text-[#002B49] uppercase">{{ turno }}º Turno</span>
+                    <button
+                      v-if="titularesForm[turno]"
+                      type="button"
+                      @click="removerTitularForm(turno)"
+                      class="text-[10px] font-bold text-rose-600 hover:underline"
+                    >
+                      Remover
+                    </button>
+                  </div>
+                  <div v-if="titularesForm[turno]" class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs">
+                    <div>
+                      <div class="font-bold text-slate-900">{{ titularesForm[turno]?.nomeColaborador }}</div>
+                      <div class="text-[10px] text-slate-500 font-mono">Matrícula: {{ titularesForm[turno]?.matriculaColaborador }}</div>
+                    </div>
+                    <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Vinculado</span>
+                  </div>
+                  <div v-else class="flex gap-1.5">
+                    <input
+                      v-model="inputTitularTurno[turno]"
+                      type="text"
+                      placeholder="Digite a matrícula ou bipe o crachá..."
+                      class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+                      @keydown.enter.prevent="buscarTitularTurno(turno)"
+                    />
+                    <button
+                      type="button"
+                      :disabled="loadingTitularTurno[turno] || !inputTitularTurno[turno].trim()"
+                      @click="buscarTitularTurno(turno)"
+                      class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-lg disabled:opacity-50 transition"
+                    >
+                      {{ loadingTitularTurno[turno] ? '...' : 'Vincular' }}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div>
-              <label class="block text-xs font-bold text-gray-700">Setor de Localização</label>
-              <select
-                v-model="formEditarColetor.setorId"
-                class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49] bg-white text-gray-800 font-semibold"
-              >
-                <option :value="null">Nenhum Setor (Geral)</option>
-                <option v-for="s in setoresAtivos" :key="s.id" :value="s.id">
-                  {{ s.nome }}
-                </option>
-              </select>
-            </div>
+
             <div class="flex justify-end gap-2 pt-3 border-t">
               <button
                 type="button"
@@ -839,6 +1015,100 @@ const exibirAlerta = (msg: string, tipo: 'sucesso' | 'erro' = 'sucesso') => {
   }, 6000);
 };
 
+// Estado compartilhado de Titulares por Turno (Modais Novo / Editar Coletor)
+interface TitularTurnoItem {
+  turno: 1 | 2 | 3;
+  matriculaColaborador: number;
+  nomeColaborador: string;
+}
+
+const titularesForm = ref<Record<1 | 2 | 3, TitularTurnoItem | null>>({
+  1: null,
+  2: null,
+  3: null,
+});
+
+const inputTitularTurno = ref<Record<1 | 2 | 3, string>>({
+  1: '',
+  2: '',
+  3: '',
+});
+
+const loadingTitularTurno = ref<Record<1 | 2 | 3, boolean>>({
+  1: false,
+  2: false,
+  3: false,
+});
+
+const erroBuscaTitular = ref('');
+
+const resetarTitularesForm = (titularesExistentes?: any[]) => {
+  erroBuscaTitular.value = '';
+  titularesForm.value = { 1: null, 2: null, 3: null };
+  inputTitularTurno.value = { 1: '', 2: '', 3: '' };
+  loadingTitularTurno.value = { 1: false, 2: false, 3: false };
+
+  if (Array.isArray(titularesExistentes)) {
+    for (const t of titularesExistentes) {
+      const turnoNum = Number(t.turno) as 1 | 2 | 3;
+      if (turnoNum === 1 || turnoNum === 2 || turnoNum === 3) {
+        titularesForm.value[turnoNum] = {
+          turno: turnoNum,
+          matriculaColaborador: Number(t.matriculaColaborador),
+          nomeColaborador: t.nomeColaborador,
+        };
+      }
+    }
+  }
+};
+
+const buscarTitularTurno = async (turno: 1 | 2 | 3) => {
+  const identificador = inputTitularTurno.value[turno].trim();
+  if (!identificador) return;
+
+  erroBuscaTitular.value = '';
+  loadingTitularTurno.value[turno] = true;
+  try {
+    const { data } = await api.get(`/colaboradores/consultar-titular/${encodeURIComponent(identificador)}`);
+    const colab = data.dados;
+    titularesForm.value[turno] = {
+      turno,
+      matriculaColaborador: Number(colab.matricula),
+      nomeColaborador: colab.nome,
+    };
+    inputTitularTurno.value[turno] = '';
+  } catch (err: any) {
+    erroBuscaTitular.value =
+      err.response?.data?.mensagem || `Colaborador não localizado para o ${turno}º turno.`;
+  } finally {
+    loadingTitularTurno.value[turno] = false;
+  }
+};
+
+const removerTitularForm = (turno: 1 | 2 | 3) => {
+  titularesForm.value[turno] = null;
+  inputTitularTurno.value[turno] = '';
+  erroBuscaTitular.value = '';
+};
+
+const serializarTitularesPayload = () => {
+  return ([1, 2, 3] as const)
+    .map((t) => titularesForm.value[t])
+    .filter((item): item is TitularTurnoItem => Boolean(item));
+};
+
+const resumirNome = (nomeCompleto?: string) => {
+  if (!nomeCompleto) return '-';
+  const partes = nomeCompleto.trim().split(/\s+/);
+  if (partes.length <= 2) return nomeCompleto;
+  return `${partes[0]} ${partes[partes.length - 1]}`;
+};
+
+const obterTitularPorTurno = (coletor: any, turno: number) => {
+  if (!coletor?.titulares || !Array.isArray(coletor.titulares)) return null;
+  return coletor.titulares.find((t: any) => Number(t.turno) === turno) || null;
+};
+
 // Modal Cadastro Coletor
 const modalNovoColetorAberto = ref(false);
 const novoColetor = ref({
@@ -865,13 +1135,17 @@ const carregarSetores = async () => {
 
 const abrirModalNovoColetor = () => {
   novoColetor.value = { patrimonio: '', marca: '', modelo: '', numeroSerie: '', setorId: null };
+  resetarTitularesForm();
   if (setores.value.length === 0) carregarSetores();
   modalNovoColetorAberto.value = true;
 };
 
 const salvarNovoColetor = async () => {
   try {
-    await api.post('/coletores', novoColetor.value);
+    await api.post('/coletores', {
+      ...novoColetor.value,
+      titulares: serializarTitularesPayload(),
+    });
     modalNovoColetorAberto.value = false;
     exibirAlerta(`Coletor ${novoColetor.value.patrimonio} cadastrado com sucesso!`, 'sucesso');
     await carregarColetores();
@@ -889,6 +1163,7 @@ const abrirModalEditarColetor = (coletor: any) => {
     numeroSerie: coletor.numeroSerie || '',
     setorId: coletor.setorId || null,
   };
+  resetarTitularesForm(coletor.titulares || []);
   if (setores.value.length === 0) carregarSetores();
   modalEditarColetorAberto.value = true;
 };
@@ -902,6 +1177,7 @@ const salvarEdicaoColetor = async () => {
       modelo: formEditarColetor.value.modelo,
       numeroSerie: formEditarColetor.value.numeroSerie || null,
       setorId: formEditarColetor.value.setorId || null,
+      titulares: serializarTitularesPayload(),
     });
     modalEditarColetorAberto.value = false;
     exibirAlerta(`Coletor ${formEditarColetor.value.patrimonio} atualizado com sucesso!`, 'sucesso');

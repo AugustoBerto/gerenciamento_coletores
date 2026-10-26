@@ -7,7 +7,7 @@
     </div>
 
     <!-- Filtros de Pesquisa -->
-    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 grid grid-cols-1 sm:grid-cols-4 gap-4">
+    <div class="bg-white p-5 rounded-xl shadow-sm border border-gray-200 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
       <div>
         <label class="block text-xs font-bold text-gray-700 mb-1">Data Início</label>
         <input
@@ -32,6 +32,19 @@
           placeholder="Ex: 1002345"
           class="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-dass-blue"
         />
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-gray-700 mb-1">Preferência / Titularidade</label>
+        <select
+          v-model="filtroTipoPreferencia"
+          class="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-dass-blue bg-white text-gray-700 font-semibold"
+          @change="buscarHistorico"
+        >
+          <option value="">Todas as Retiradas</option>
+          <option value="FORA_PREFERENCIA">Fora da Preferência</option>
+          <option value="TITULAR">Titular do Coletor</option>
+          <option value="LIVRE">Livre (Sem Vínculo)</option>
+        </select>
       </div>
       <div>
         <label class="block text-xs font-bold text-gray-700 mb-1">Matrícula</label>
@@ -70,6 +83,7 @@
               <tr>
                 <th class="py-3 px-4">Patrimônio</th>
                 <th class="py-3 px-4">Colaborador</th>
+                <th class="py-3 px-4">Preferência / Turno</th>
                 <th class="py-3 px-4">Setor</th>
                 <th class="py-3 px-4">Saída</th>
                 <th class="py-3 px-4">Entregue Por</th>
@@ -87,6 +101,25 @@
                 <td class="py-3 px-4">
                   <div class="font-bold text-gray-900">{{ m.nomeColaborador }}</div>
                   <div class="text-[10px] text-gray-400">Mat: {{ m.matriculaColaborador }}</div>
+                </td>
+                <td class="py-3 px-4">
+                  <div v-if="m.tipoPreferencia === 'FORA_PREFERENCIA'" class="space-y-0.5">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
+                      ⇄ Fora da Preferência
+                    </span>
+                    <div v-if="m.detalhePreferencia" class="text-[10px] text-gray-500 max-w-xs leading-snug">
+                      {{ m.detalhePreferencia }}
+                    </div>
+                  </div>
+                  <div v-else-if="m.tipoPreferencia === 'TITULAR'" class="space-y-0.5">
+                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                      ★ Titular
+                    </span>
+                    <div v-if="m.detalhePreferencia" class="text-[10px] text-gray-400">
+                      {{ m.detalhePreferencia }}
+                    </div>
+                  </div>
+                  <span v-else class="text-[11px] text-gray-400">Livre</span>
                 </td>
                 <td class="py-3 px-4 text-gray-700">{{ m.setorColaborador || '-' }}</td>
                 <td class="py-3 px-4 font-mono text-gray-700">{{ formatarDataCompleta(m.dataSaida) }}</td>
@@ -127,9 +160,26 @@
               </div>
             </div>
 
-            <div class="text-xs text-gray-700">
-              <div class="font-bold text-gray-900">{{ m.nomeColaborador }}</div>
+            <div class="text-xs text-gray-700 space-y-1">
+              <div class="flex items-center gap-1.5 flex-wrap">
+                <span class="font-bold text-gray-900">{{ m.nomeColaborador }}</span>
+                <span
+                  v-if="m.tipoPreferencia === 'FORA_PREFERENCIA'"
+                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+                >
+                  ⇄ Fora Pref.
+                </span>
+                <span
+                  v-else-if="m.tipoPreferencia === 'TITULAR'"
+                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                >
+                  ★ Titular
+                </span>
+              </div>
               <div class="text-gray-500 text-[11px]">Mat: {{ m.matriculaColaborador }} &bull; {{ m.setorColaborador || 'Setor Operacional' }}</div>
+              <div v-if="m.tipoPreferencia === 'FORA_PREFERENCIA' && m.detalhePreferencia" class="text-[10px] text-amber-800 bg-amber-50/70 p-1.5 rounded border border-amber-200/70">
+                {{ m.detalhePreferencia }}
+              </div>
             </div>
 
             <div class="text-[11px] text-gray-600 grid grid-cols-2 gap-2 pt-2 border-t border-gray-100">
@@ -164,6 +214,7 @@ const filtroDataInicio = ref('');
 const filtroDataFim = ref('');
 const filtroPatrimonio = ref('');
 const filtroMatricula = ref('');
+const filtroTipoPreferencia = ref('');
 
 const formatarDataCompleta = (iso: string) => {
   if (!iso) return '-';
@@ -179,6 +230,7 @@ const buscarHistorico = async () => {
     if (filtroDataFim.value) params.dataFim = filtroDataFim.value;
     if (filtroPatrimonio.value.trim()) params.patrimonio = filtroPatrimonio.value.trim();
     if (filtroMatricula.value) params.matricula = Number(filtroMatricula.value);
+    if (filtroTipoPreferencia.value) params.tipoPreferencia = filtroTipoPreferencia.value;
 
     const { data } = await api.get('/relatorios/historico', { params });
     movimentacoes.value = data.dados || [];
