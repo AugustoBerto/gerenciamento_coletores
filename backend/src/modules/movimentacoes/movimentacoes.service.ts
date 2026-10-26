@@ -4,6 +4,7 @@ import { Coletor } from '../../database/entities/Coletor';
 import { Movimentacao } from '../../database/entities/Movimentacao';
 import { HistoricoManutencao } from '../../database/entities/HistoricoManutencao';
 import { Configuracao } from '../../database/entities/Configuracao';
+import { ColetorTitular } from '../../database/entities/ColetorTitular';
 import { ColaboradoresService } from '../colaboradores/colaboradores.service';
 
 export interface RetiradaDTO {
@@ -118,6 +119,63 @@ export class MovimentacoesService {
         throw new AppError('Este coletor está inativo no inventário permanente.', 409, 'COLETOR_INATIVO');
       }
 
+      // Avaliação automática de titularidade / preferência de turno (informativo e não bloqueante)
+      const [titularesDoColetor, vinculosColaborador] = await Promise.all([
+        queryRunner.manager.find(ColetorTitular, {
+          where: { coletorId: coletor.id },
+          order: { turno: 'ASC' },
+        }),
+        queryRunner.manager.find(ColetorTitular, {
+          where: { matriculaColaborador: colaborador.matricula },
+          relations: { coletor: true },
+          order: { turno: 'ASC' },
+        }),
+      ]);
+
+      const abreviarNome = (nomeCompleto: string): string => {
+        const partes = String(nomeCompleto || '').trim().split(/\s+/);
+        if (partes.length <= 2) return partes.join(' ');
+        return `${partes[0]} ${partes[partes.length - 1]}`;
+      };
+
+      let tipoPreferencia: 'TITULAR' | 'LIVRE' | 'FORA_PREFERENCIA' = 'LIVRE';
+      let detalhePreferencia: string | null = null;
+
+      const titularProprio = titularesDoColetor.find(
+        (t) => Number(t.matriculaColaborador) === Number(colaborador.matricula)
+      );
+
+      if (titularProprio) {
+        tipoPreferencia = 'TITULAR';
+        detalhePreferencia = `Titular (${titularProprio.turno}º Turno)`;
+      } else if (vinculosColaborador.length > 0 || titularesDoColetor.length > 0) {
+        tipoPreferencia = 'FORA_PREFERENCIA';
+        const detalhes: string[] = [];
+
+        if (vinculosColaborador.length > 0) {
+          const pref = vinculosColaborador[0];
+          if (pref.coletor) {
+            const mapaStatus: Record<string, string> = {
+              DISPONIVEL: 'disponível',
+              EM_USO: 'em uso',
+              MANUTENCAO: 'em manutenção',
+              INATIVO: 'inativo',
+            };
+            const st = mapaStatus[pref.coletor.status] || pref.coletor.status;
+            detalhes.push(`Titular do ${pref.coletor.patrimonio} (${pref.turno}ºT - ${st})`);
+          }
+        }
+
+        if (titularesDoColetor.length > 0) {
+          const donos = titularesDoColetor
+            .map((t) => `${t.turno}ºT: ${abreviarNome(t.nomeColaborador)}`)
+            .join(', ');
+          detalhes.push(`Aparelho de ${donos}`);
+        }
+
+        detalhePreferencia = detalhes.join(' • ').slice(0, 250);
+      }
+
       // Registra a movimentação
       const movimentacao = queryRunner.manager.create(Movimentacao, {
         coletorId: coletor.id,
@@ -125,6 +183,8 @@ export class MovimentacoesService {
         nomeColaborador: colaborador.nome,
         setorColaborador: colaborador.setor,
         operadorSaidaId,
+        tipoPreferencia,
+        detalhePreferencia,
         dataSaida: new Date(),
       });
       await queryRunner.manager.save(movimentacao);
@@ -200,6 +260,8 @@ export class MovimentacoesService {
       operadorSaida: {
         nome: mov.operadorSaida.nome,
       },
+      tipoPreferencia: mov.tipoPreferencia,
+      detalhePreferencia: mov.detalhePreferencia,
       dataSaida: mov.dataSaida,
       minutosEmUso,
       tempoFormatado,
@@ -257,6 +319,8 @@ export class MovimentacoesService {
       operadorSaida: {
         nome: mov.operadorSaida.nome,
       },
+      tipoPreferencia: mov.tipoPreferencia,
+      detalhePreferencia: mov.detalhePreferencia,
       dataSaida: mov.dataSaida,
       minutosEmUso,
       tempoFormatado,
@@ -409,6 +473,8 @@ export class MovimentacoesService {
           id: m.operadorSaida.id,
           nome: m.operadorSaida.nome,
         },
+        tipoPreferencia: m.tipoPreferencia,
+        detalhePreferencia: m.detalhePreferencia,
         dataSaida: m.dataSaida,
         minutosEmUso,
         tempoFormatado: `${horas}h ${mins.toString().padStart(2, '0')}m`,

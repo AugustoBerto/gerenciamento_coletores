@@ -4,6 +4,16 @@ import { AppError } from '../../shared/errors/AppError';
 import { BloqueioColaborador } from '../../database/entities/BloqueioColaborador';
 import { Movimentacao } from '../../database/entities/Movimentacao';
 import { Operador } from '../../database/entities/Operador';
+import { ColetorTitular } from '../../database/entities/ColetorTitular';
+
+export interface ColetorPreferencialInfo {
+  coletorId: string;
+  patrimonio: string;
+  marca: string;
+  modelo: string;
+  status: string;
+  turno: number;
+}
 
 export interface ColaboradorInfo {
   matricula: number;
@@ -11,6 +21,7 @@ export interface ColaboradorInfo {
   setor: string;
   funcao: string;
   apto: boolean;
+  coletoresPreferenciais?: ColetorPreferencialInfo[];
   pendencia?: {
     coletorPatrimonio: string;
     dataSaida: Date;
@@ -212,12 +223,119 @@ export class ColaboradoresService {
       );
     }
 
+    // Busca coletores preferenciais vinculados a este colaborador
+    const titularRepo = AppDataSource.getRepository(ColetorTitular);
+    const vinculos = await titularRepo.find({
+      where: { matriculaColaborador: matricula },
+      relations: { coletor: true },
+      order: { turno: 'ASC' },
+    });
+
+    const coletoresPreferenciais: ColetorPreferencialInfo[] = vinculos
+      .filter((v) => v.coletor)
+      .map((v) => ({
+        coletorId: v.coletor.id,
+        patrimonio: v.coletor.patrimonio,
+        marca: v.coletor.marca,
+        modelo: v.coletor.modelo,
+        status: v.coletor.status,
+        turno: v.turno,
+      }));
+
     return {
       matricula,
       nome: String(colab.nome || 'Colaborador'),
       setor: String(colab.setor || 'Setor Operacional'),
       funcao: String(colab.funcao || 'Operador'),
       apto: true,
+      coletoresPreferenciais,
+    };
+  }
+
+  public static async consultarColaboradorParaTitular(identificadorRaw: string): Promise<{
+    matricula: number;
+    nome: string;
+    setor: string;
+    funcao: string;
+  }> {
+    const raw = String(identificadorRaw || '')
+      .replace(/[\r\n\t]/g, '')
+      .trim();
+
+    if (!raw) {
+      throw new AppError('Informe a matrícula ou bipe o crachá do colaborador.', 400, 'PARAMETRO_OBRIGATORIO');
+    }
+
+    let numericVal: string | null = null;
+    let hexDecVal: string | null = null;
+
+    if (/^\d+$/.test(raw)) {
+      try {
+        numericVal = BigInt(raw).toString();
+      } catch {}
+    } else if (/^[0-9a-fA-F]{4,16}$/.test(raw)) {
+      try {
+        hexDecVal = BigInt('0x' + raw).toString();
+      } catch {}
+    }
+
+    const stripped = raw.replace(/^0+/, '');
+    let strippedVal: string | null = null;
+    if (stripped && stripped !== raw && /^\d+$/.test(stripped)) {
+      try {
+        strippedVal = BigInt(stripped).toString();
+      } catch {}
+    }
+
+    if (!numericVal && !hexDecVal && !strippedVal) {
+      throw new AppError('Colaborador não localizado. Informe a matrícula ou bipe o crachá.', 404, 'COLABORADOR_NAO_ENCONTRADO');
+    }
+
+    const query = `
+      WITH candidato AS (
+        SELECT matricula, nome
+        FROM colaborador.colaboradores
+        WHERE ($1::bigint IS NOT NULL AND matricula = $1::bigint)
+           OR ($2::bigint IS NOT NULL AND matricula = $2::bigint)
+
+        UNION ALL
+
+        SELECT matricula, nome
+        FROM colaborador.colaboradores
+        WHERE ($1::bigint IS NOT NULL AND codbarras = $1::bigint)
+           OR ($2::bigint IS NOT NULL AND codbarras = $2::bigint)
+
+        UNION ALL
+
+        SELECT matricula, nome
+        FROM colaborador.colaboradores
+        WHERE ($1::bigint IS NOT NULL AND rfid = $1::bigint)
+           OR ($2::bigint IS NOT NULL AND rfid = $2::bigint)
+           OR ($3::bigint IS NOT NULL AND rfid = $3::bigint)
+
+        LIMIT 1
+      )
+      SELECT 
+        c.matricula, 
+        c.nome, 
+        COALESCE(l.nome_setor, 'Setor Operacional') AS setor, 
+        COALESCE(l.funcao, 'Operador') AS funcao
+      FROM candidato c
+      LEFT JOIN colaborador.lista_funcionario l ON l.matricula = c.matricula
+      LIMIT 1;
+    `;
+
+    const results = await AppDataSource.query(query, [numericVal, strippedVal, hexDecVal]);
+    if (!results || results.length === 0) {
+      throw new AppError('Colaborador não localizado na base corporativa.', 404, 'COLABORADOR_NAO_ENCONTRADO');
+    }
+
+    const colab = results[0];
+    return {
+      matricula: Number(colab.matricula),
+      nome: String(colab.nome || 'Colaborador'),
+      setor: String(colab.setor || 'Setor Operacional'),
+      funcao: String(colab.funcao || 'Operador'),
     };
   }
 

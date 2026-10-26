@@ -63,6 +63,22 @@ export class Movimentacao {
   @Column({ name: 'observacao_devolucao', type: 'text', nullable: true })
   observacaoDevolucao!: string | null;
 
+  @Column({
+    name: 'tipo_preferencia',
+    type: 'varchar',
+    length: 25,
+    default: 'LIVRE',
+  })
+  tipoPreferencia!: 'TITULAR' | 'LIVRE' | 'FORA_PREFERENCIA';
+
+  @Column({
+    name: 'detalhe_preferencia',
+    type: 'varchar',
+    length: 255,
+    nullable: true,
+  })
+  detalhePreferencia!: string | null;
+
   @CreateDateColumn({ name: 'criado_em', type: 'timestamptz' })
   criadoEm!: Date;
 }

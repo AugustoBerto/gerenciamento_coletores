@@ -4,6 +4,14 @@ import { Coletor, StatusColetor } from '../../database/entities/Coletor';
 import { HistoricoManutencao } from '../../database/entities/HistoricoManutencao';
 import { Movimentacao } from '../../database/entities/Movimentacao';
 import { Setor } from '../../database/entities/Setor';
+import { ColetorTitular } from '../../database/entities/ColetorTitular';
+import { ColaboradoresService } from '../colaboradores/colaboradores.service';
+
+export interface TitularInputDTO {
+  turno: number;
+  matriculaColaborador: number;
+  nomeColaborador?: string;
+}
 
 export interface CriarColetorDTO {
   patrimonio: string;
@@ -11,6 +19,7 @@ export interface CriarColetorDTO {
   marca: string;
   modelo: string;
   setorId?: string | null;
+  titulares?: TitularInputDTO[];
 }
 
 export interface AtualizarColetorDTO {
@@ -18,9 +27,64 @@ export interface AtualizarColetorDTO {
   marca?: string;
   modelo?: string;
   setorId?: string | null;
+  titulares?: TitularInputDTO[];
 }
 
 export class ColetoresService {
+  private static async sincronizarTitulares(
+    coletorId: string,
+    titularesInput?: TitularInputDTO[]
+  ): Promise<void> {
+    if (titularesInput === undefined) return;
+
+    const titularRepo = AppDataSource.getRepository(ColetorTitular);
+
+    // Remove vínculos anteriores deste coletor
+    await titularRepo.delete({ coletorId });
+
+    const validos: Array<{ turno: number; matriculaColaborador: number; nomeColaborador: string }> = [];
+    const turnosVistos = new Set<number>();
+
+    for (const item of titularesInput) {
+      const turno = Number(item.turno);
+      const matricula = Number(item.matriculaColaborador);
+      if (![1, 2, 3].includes(turno) || !matricula || isNaN(matricula)) {
+        continue;
+      }
+      if (turnosVistos.has(turno)) {
+        continue;
+      }
+      turnosVistos.add(turno);
+
+      let nome = item.nomeColaborador ? String(item.nomeColaborador).trim() : '';
+      if (!nome) {
+        const colab = await ColaboradoresService.consultarColaboradorParaTitular(String(matricula));
+        nome = colab.nome;
+      }
+
+      // Garante que o mesmo colaborador não fique como titular de outro coletor no mesmo turno
+      await titularRepo.delete({ matriculaColaborador: matricula, turno });
+
+      validos.push({
+        turno,
+        matriculaColaborador: matricula,
+        nomeColaborador: nome,
+      });
+    }
+
+    if (validos.length > 0) {
+      const entidades = validos.map((v) =>
+        titularRepo.create({
+          coletorId,
+          turno: v.turno,
+          matriculaColaborador: v.matriculaColaborador,
+          nomeColaborador: v.nomeColaborador,
+        })
+      );
+      await titularRepo.save(entidades);
+    }
+  }
+
   public static async listar(filtros: {
     busca?: string;
     status?: StatusColetor;
@@ -33,7 +97,10 @@ export class ColetoresService {
     const skip = (page - 1) * limit;
 
     const repo = AppDataSource.getRepository(Coletor);
-    const query = repo.createQueryBuilder('c').leftJoinAndSelect('c.setor', 'setor');
+    const query = repo
+      .createQueryBuilder('c')
+      .leftJoinAndSelect('c.setor', 'setor')
+      .leftJoinAndSelect('c.titulares', 'titulares');
 
     if (filtros.status) {
       query.andWhere('c.status = :status', { status: filtros.status });
@@ -46,12 +113,16 @@ export class ColetoresService {
     if (filtros.busca) {
       const termo = `%${filtros.busca.trim()}%`;
       query.andWhere(
-        '(c.patrimonio ILIKE :termo OR c.numero_serie ILIKE :termo OR c.marca ILIKE :termo OR c.modelo ILIKE :termo OR setor.nome ILIKE :termo)',
+        '(c.patrimonio ILIKE :termo OR c.numero_serie ILIKE :termo OR c.marca ILIKE :termo OR c.modelo ILIKE :termo OR setor.nome ILIKE :termo OR titulares.nome_colaborador ILIKE :termo OR CAST(titulares.matricula_colaborador AS TEXT) ILIKE :termo)',
         { termo }
       );
     }
 
-    query.orderBy('c.patrimonio', 'ASC').skip(skip).take(limit);
+    query
+      .orderBy('c.patrimonio', 'ASC')
+      .addOrderBy('titulares.turno', 'ASC')
+      .skip(skip)
+      .take(limit);
 
     const [coletores, total] = await query.getManyAndCount();
 
@@ -70,6 +141,10 @@ export class ColetoresService {
       relations: {
         historicoManutencoes: { operador: true },
         setor: true,
+        titulares: true,
+      },
+      order: {
+        titulares: { turno: 'ASC' },
       },
     });
 
@@ -110,6 +185,9 @@ export class ColetoresService {
     });
 
     const salvo = await repo.save(coletor);
+    if (dto.titulares && Array.isArray(dto.titulares)) {
+      await this.sincronizarTitulares(salvo.id, dto.titulares);
+    }
     return this.buscarPorId(salvo.id);
   }
 
@@ -140,6 +218,9 @@ export class ColetoresService {
     }
 
     await repo.save(coletor);
+    if (dto.titulares !== undefined && Array.isArray(dto.titulares)) {
+      await this.sincronizarTitulares(coletor.id, dto.titulares);
+    }
     return this.buscarPorId(coletor.id);
   }
 

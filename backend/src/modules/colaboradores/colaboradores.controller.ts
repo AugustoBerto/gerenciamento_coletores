@@ -34,6 +34,19 @@ export class ColaboradoresController {
     }
   }
 
+  public async consultarTitular(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { identificador } = req.params;
+      const colaborador = await ColaboradoresService.consultarColaboradorParaTitular(identificador);
+      res.status(200).json({
+        sucesso: true,
+        dados: colaborador,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   public async listarBloqueios(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const bloqueios = await ColaboradoresService.listarBloqueios();

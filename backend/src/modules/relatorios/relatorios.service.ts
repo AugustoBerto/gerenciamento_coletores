@@ -60,6 +60,7 @@ export class RelatoriosService {
     dataFim?: string;
     matricula?: number;
     patrimonio?: string;
+    tipoPreferencia?: string;
     page?: number;
     limit?: number;
   }): Promise<any> {
@@ -80,6 +81,10 @@ export class RelatoriosService {
 
     if (filtros.matricula) {
       query.andWhere('m.matriculaColaborador = :mat', { mat: filtros.matricula });
+    }
+
+    if (filtros.tipoPreferencia) {
+      query.andWhere('m.tipoPreferencia = :tp', { tp: filtros.tipoPreferencia.trim() });
     }
 
     if (filtros.dataInicio) {

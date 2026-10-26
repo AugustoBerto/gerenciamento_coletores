@@ -16,12 +16,13 @@ export class RelatoriosController {
 
   public async historico(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { dataInicio, dataFim, matricula, patrimonio, page, limit } = req.query;
+      const { dataInicio, dataFim, matricula, patrimonio, tipoPreferencia, page, limit } = req.query;
       const resultado = await RelatoriosService.historico({
         dataInicio: dataInicio ? String(dataInicio) : undefined,
         dataFim: dataFim ? String(dataFim) : undefined,
         matricula: matricula ? Number(matricula) : undefined,
         patrimonio: patrimonio ? String(patrimonio) : undefined,
+        tipoPreferencia: tipoPreferencia ? String(tipoPreferencia) : undefined,
         page: page ? Number(page) : undefined,
         limit: limit ? Number(limit) : undefined,
       });

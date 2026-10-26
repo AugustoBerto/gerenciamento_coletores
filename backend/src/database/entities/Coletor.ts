@@ -11,6 +11,7 @@ import {
 import { Movimentacao } from './Movimentacao';
 import { HistoricoManutencao } from './HistoricoManutencao';
 import { Setor } from './Setor';
+import { ColetorTitular } from './ColetorTitular';
 
 export type StatusColetor = 'DISPONIVEL' | 'EM_USO' | 'MANUTENCAO' | 'INATIVO';
 
@@ -69,4 +70,7 @@ export class Coletor {
 
   @OneToMany(() => HistoricoManutencao, (hm) => hm.coletor)
   historicoManutencoes!: HistoricoManutencao[];
+
+  @OneToMany(() => ColetorTitular, (ct) => ct.coletor)
+  titulares!: ColetorTitular[];
 }

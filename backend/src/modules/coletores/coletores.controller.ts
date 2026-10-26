@@ -43,13 +43,14 @@ export class ColetoresController {
 
   public async criar(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { patrimonio, numeroSerie, marca, modelo, setorId } = req.body;
+      const { patrimonio, numeroSerie, marca, modelo, setorId, titulares } = req.body;
       const coletor = await ColetoresService.criar({
         patrimonio,
         numeroSerie,
         marca,
         modelo,
         setorId: setorId ? String(setorId) : null,
+        titulares: Array.isArray(titulares) ? titulares : undefined,
       });
 
       res.status(201).json({
@@ -65,12 +66,13 @@ export class ColetoresController {
   public async atualizar(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const { numeroSerie, marca, modelo, setorId } = req.body;
+      const { numeroSerie, marca, modelo, setorId, titulares } = req.body;
       const coletor = await ColetoresService.atualizar(id, {
         numeroSerie,
         marca,
         modelo,
         setorId: setorId !== undefined ? (setorId ? String(setorId) : null) : undefined,
+        titulares: Array.isArray(titulares) ? titulares : undefined,
       });
 
       res.status(200).json({
