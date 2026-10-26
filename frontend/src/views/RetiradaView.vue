@@ -348,20 +348,17 @@
       <!-- Aviso Discreto de Preferência / Titularidade (Não bloqueante) -->
       <div
         v-if="avisoPreferenciaSelecionado"
-        class="p-3 rounded-xl border text-xs flex items-start gap-2"
+        class="px-3 py-2 rounded-xl border text-xs flex items-center gap-2"
         :class="
           avisoPreferenciaSelecionado.tipo === 'TITULAR'
             ? 'bg-emerald-50/70 border-emerald-200 text-emerald-900'
             : 'bg-amber-50/70 border-amber-200 text-amber-900'
         "
       >
-        <span class="font-black text-sm leading-none mt-0.5">
+        <span class="font-black text-sm leading-none">
           {{ avisoPreferenciaSelecionado.tipo === 'TITULAR' ? '★' : 'ℹ' }}
         </span>
-        <div>
-          <span class="font-bold">{{ avisoPreferenciaSelecionado.titulo }}:</span>
-          <span class="ml-1">{{ avisoPreferenciaSelecionado.detalhe }}</span>
-        </div>
+        <span class="font-semibold">{{ avisoPreferenciaSelecionado.titulo }}</span>
       </div>
 
       <!-- Barra de Ação Inferior -->
@@ -460,8 +457,7 @@ const avisoPreferenciaSelecionado = computed(() => {
   if (turnoTitular) {
     return {
       tipo: 'TITULAR',
-      titulo: 'Coletor Preferencial do Colaborador',
-      detalhe: `Vinculado como titular do ${turnoTitular}º turno neste coletor.`,
+      titulo: 'Coletor preferencial do colaborador',
     };
   }
 
@@ -474,24 +470,9 @@ const avisoPreferenciaSelecionado = computed(() => {
     return null;
   }
 
-  const partes: string[] = [];
-  if (titularesColetor.length > 0) {
-    const desc = titularesColetor
-      .map((t: any) => `${t.turno}ºT: ${resumirNomeCurto(t.nomeColaborador)}`)
-      .join(', ');
-    partes.push(`Coletor vinculado a [${desc}]`);
-  }
-  if (prefsColab.length > 0) {
-    const descColab = prefsColab
-      .map((p: any) => `${p.patrimonio} (${p.turno}ºT - ${p.status})`)
-      .join(', ');
-    partes.push(`Preferencial do colaborador: ${descColab}`);
-  }
-
   return {
     tipo: 'FORA_PREFERENCIA',
-    titulo: 'Retirada fora da preferência (informativo)',
-    detalhe: `${partes.join(' | ')}. A liberação é permitida e será registrada para fins de auditoria.`,
+    titulo: 'Retirada fora da preferência',
   };
 });
 

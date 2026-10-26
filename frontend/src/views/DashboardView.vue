@@ -125,29 +125,21 @@
                   {{ item.coletor.marca }} {{ item.coletor.modelo }}
                 </td>
                 <td class="py-3.5 px-4">
-                  <div class="flex items-center gap-1.5 flex-wrap">
-                    <span class="font-bold text-gray-900">{{ item.colaborador.nome }}</span>
+                  <div class="font-bold text-gray-900">{{ item.colaborador.nome }}</div>
+                  <div class="flex items-center gap-1.5 mt-0.5 flex-wrap">
+                    <span class="text-[10px] text-gray-400">Mat: {{ item.colaborador.matricula }}</span>
                     <span
                       v-if="item.tipoPreferencia === 'FORA_PREFERENCIA'"
-                      :title="item.detalhePreferencia || 'Uso fora da preferência de turno'"
-                      class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200 cursor-help"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200"
                     >
-                      <span>⇄ Fora Pref.</span>
+                      Fora de preferência
                     </span>
                     <span
                       v-else-if="item.tipoPreferencia === 'TITULAR'"
-                      :title="item.detalhePreferencia || 'Colaborador titular do coletor'"
-                      class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200 cursor-help"
+                      class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
                     >
-                      ★ Titular
+                      Titular
                     </span>
-                  </div>
-                  <div class="text-[10px] text-gray-400">Mat: {{ item.colaborador.matricula }}</div>
-                  <div
-                    v-if="item.tipoPreferencia === 'FORA_PREFERENCIA' && item.detalhePreferencia"
-                    class="text-[10px] text-amber-700/90 mt-0.5 leading-snug max-w-xs"
-                  >
-                    {{ item.detalhePreferencia }}
                   </div>
                 </td>
                 <td class="py-3.5 px-4 font-medium text-gray-700">
@@ -205,29 +197,22 @@
             </div>
 
             <div class="text-xs text-gray-700 space-y-0.5">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="font-bold text-gray-900">{{ item.colaborador.nome }}</span>
+              <div class="font-bold text-gray-900">{{ item.colaborador.nome }}</div>
+              <div class="flex items-center gap-1.5 flex-wrap text-gray-500 text-[11px]">
+                <span>Mat: {{ item.colaborador.matricula }}</span>
                 <span
                   v-if="item.tipoPreferencia === 'FORA_PREFERENCIA'"
-                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200"
                 >
-                  ⇄ Fora Pref.
+                  Fora de preferência
                 </span>
                 <span
                   v-else-if="item.tipoPreferencia === 'TITULAR'"
-                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-600 border border-slate-200"
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-600 border border-slate-200"
                 >
-                  ★ Titular
+                  Titular
                 </span>
-              </div>
-              <div class="text-gray-500 text-[11px]">
-                Mat: {{ item.colaborador.matricula }} &bull; Setor: {{ item.colaborador.setor || '-' }}
-              </div>
-              <div
-                v-if="item.tipoPreferencia === 'FORA_PREFERENCIA' && item.detalhePreferencia"
-                class="text-[10px] text-amber-800 bg-amber-50/70 px-2 py-1 rounded border border-amber-200/70 mt-1"
-              >
-                {{ item.detalhePreferencia }}
+                <span>&bull; Setor: {{ item.colaborador.setor || '-' }}</span>
               </div>
               <div class="text-gray-400 text-[10px]">
                 Saída: {{ formatarData(item.dataSaida) }} (por {{ item.operadorSaida.nome }})

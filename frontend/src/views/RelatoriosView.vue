@@ -103,22 +103,18 @@
                   <div class="text-[10px] text-gray-400">Mat: {{ m.matriculaColaborador }}</div>
                 </td>
                 <td class="py-3 px-4">
-                  <div v-if="m.tipoPreferencia === 'FORA_PREFERENCIA'" class="space-y-0.5">
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200">
-                      ⇄ Fora da Preferência
-                    </span>
-                    <div v-if="m.detalhePreferencia" class="text-[10px] text-gray-500 max-w-xs leading-snug">
-                      {{ m.detalhePreferencia }}
-                    </div>
-                  </div>
-                  <div v-else-if="m.tipoPreferencia === 'TITULAR'" class="space-y-0.5">
-                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
-                      ★ Titular
-                    </span>
-                    <div v-if="m.detalhePreferencia" class="text-[10px] text-gray-400">
-                      {{ m.detalhePreferencia }}
-                    </div>
-                  </div>
+                  <span
+                    v-if="m.tipoPreferencia === 'FORA_PREFERENCIA'"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200"
+                  >
+                    Fora de preferência
+                  </span>
+                  <span
+                    v-else-if="m.tipoPreferencia === 'TITULAR'"
+                    class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  >
+                    Titular
+                  </span>
                   <span v-else class="text-[11px] text-gray-400">Livre</span>
                 </td>
                 <td class="py-3 px-4 text-gray-700">{{ m.setorColaborador || '-' }}</td>
@@ -160,25 +156,23 @@
               </div>
             </div>
 
-            <div class="text-xs text-gray-700 space-y-1">
-              <div class="flex items-center gap-1.5 flex-wrap">
-                <span class="font-bold text-gray-900">{{ m.nomeColaborador }}</span>
+            <div class="text-xs text-gray-700 space-y-0.5">
+              <div class="font-bold text-gray-900">{{ m.nomeColaborador }}</div>
+              <div class="flex items-center gap-1.5 flex-wrap text-gray-500 text-[11px]">
+                <span>Mat: {{ m.matriculaColaborador }}</span>
                 <span
                   v-if="m.tipoPreferencia === 'FORA_PREFERENCIA'"
-                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-800 border border-amber-200"
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-amber-50 text-amber-800 border border-amber-200"
                 >
-                  ⇄ Fora Pref.
+                  Fora de preferência
                 </span>
                 <span
                   v-else-if="m.tipoPreferencia === 'TITULAR'"
-                  class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200"
+                  class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-emerald-50 text-emerald-800 border border-emerald-200"
                 >
-                  ★ Titular
+                  Titular
                 </span>
-              </div>
-              <div class="text-gray-500 text-[11px]">Mat: {{ m.matriculaColaborador }} &bull; {{ m.setorColaborador || 'Setor Operacional' }}</div>
-              <div v-if="m.tipoPreferencia === 'FORA_PREFERENCIA' && m.detalhePreferencia" class="text-[10px] text-amber-800 bg-amber-50/70 p-1.5 rounded border border-amber-200/70">
-                {{ m.detalhePreferencia }}
+                <span>&bull; {{ m.setorColaborador || 'Setor Operacional' }}</span>
               </div>
             </div>
 
