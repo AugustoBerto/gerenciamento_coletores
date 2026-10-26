@@ -28,7 +28,7 @@
       :class="store.metricas?.slaAtivo ? 'sm:grid-cols-3 lg:grid-cols-5' : 'sm:grid-cols-2 lg:grid-cols-4'"
     >
       <div class="bg-white p-4 sm:p-5 rounded-2xl shadow-sm border border-gray-200">
-        <div class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Parque Total</div>
+        <div class="text-[11px] font-bold text-gray-500 uppercase tracking-wider">Total de Coletores</div>
         <div class="text-2xl font-black text-gray-900 mt-1">{{ store.metricas?.total ?? '-' }}</div>
         <div class="text-[10px] text-gray-400 mt-1">Aparelhos patrimoniados</div>
       </div>
