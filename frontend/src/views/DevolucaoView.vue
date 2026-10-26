@@ -280,11 +280,9 @@
 
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue';
-import { useRoute } from 'vue-router';
 import { useMovimentacoesStore } from '../stores/movimentacoes';
 import { useAudioFeedback } from '../composables/useAudioFeedback';
 
-const route = useRoute();
 const store = useMovimentacoesStore();
 const { playSuccess, playError } = useAudioFeedback();
 
@@ -362,12 +360,7 @@ const buscarCustodia = async () => {
   loadingBusca.value = true;
 
   try {
-    let dados: any;
-    if (/^[0-9]{7}$/.test(id) && route.query.patrimonio === id) {
-      dados = await store.buscarPorPatrimonio(id);
-    } else {
-      dados = await store.buscarPorColaborador(id);
-    }
+    const dados = await store.buscarPorColaborador(id);
 
     // Validação cruzada: o colaborador não pode ser o mesmo monitor que recebe
     if (operadorIdentificado.value && operadorIdentificado.value.matricula === dados.colaborador.matricula) {
@@ -467,11 +460,6 @@ const resetarFluxo = () => {
 
 onMounted(() => {
   focarOperador();
-
-  // Se veio pré-preenchido por query param de patrimônio
-  if (route.query.patrimonio) {
-    identificador.value = String(route.query.patrimonio);
-  }
 
   window.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {

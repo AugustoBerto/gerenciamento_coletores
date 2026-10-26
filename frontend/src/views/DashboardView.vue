@@ -108,7 +108,6 @@
                 <th class="py-3.5 px-4">Entregue por</th>
                 <th class="py-3.5 px-4">Horário de Saída</th>
                 <th class="py-3.5 px-4 text-center">Tempo em Posse</th>
-                <th class="py-3.5 px-4 text-right">Ação</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-100">
@@ -162,14 +161,6 @@
                     </span>
                   </span>
                 </td>
-                <td class="py-3.5 px-4 text-right">
-                  <RouterLink
-                    :to="{ path: '/devolucao', query: { patrimonio: item.coletor.patrimonio } }"
-                    class="inline-block bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-300 hover:border-emerald-500 font-bold px-3 py-1 rounded-lg text-xs transition shadow-xs"
-                  >
-                    Devolver
-                  </RouterLink>
-                </td>
               </tr>
             </tbody>
           </table>
@@ -217,15 +208,6 @@
               <div class="text-gray-400 text-[10px]">
                 Saída: {{ formatarData(item.dataSaida) }} (por {{ item.operadorSaida.nome }})
               </div>
-            </div>
-
-            <div class="pt-2 border-t border-gray-100 flex justify-end">
-              <RouterLink
-                :to="{ path: '/devolucao', query: { patrimonio: item.coletor.patrimonio } }"
-                class="inline-flex items-center justify-center bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-1.5 rounded-lg text-xs transition"
-              >
-                Registrar Devolução
-              </RouterLink>
             </div>
           </div>
         </div>
