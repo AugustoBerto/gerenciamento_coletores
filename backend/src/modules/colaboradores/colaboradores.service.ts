@@ -3,6 +3,7 @@ import { AppDataSource } from '../../config/database';
 import { AppError } from '../../shared/errors/AppError';
 import { BloqueioColaborador } from '../../database/entities/BloqueioColaborador';
 import { Movimentacao } from '../../database/entities/Movimentacao';
+import { Operador } from '../../database/entities/Operador';
 
 export interface ColaboradorInfo {
   matricula: number;
@@ -226,6 +227,37 @@ export class ColaboradoresService {
 
     // 2. Valida elegibilidade e travas pela matrícula identificada
     return this.validarPorMatricula(colab.matricula);
+  }
+
+  public static async validarMonitorPorCracha(codigoRaw: string): Promise<{
+    id: string | null;
+    matricula: number;
+    nome: string;
+    cargo: string;
+    papel: string;
+  }> {
+    const colab = await this.buscarColaboradorCorporativo(codigoRaw);
+    const operadorRepo = AppDataSource.getRepository(Operador);
+
+    const operador = await operadorRepo.findOne({
+      where: { matricula: colab.matricula },
+    });
+
+    if (operador && !operador.ativo) {
+      throw new AppError(
+        `O monitor ${operador.nome} está inativo no sistema e não pode liberar ou receber equipamentos.`,
+        403,
+        'OPERADOR_INATIVO'
+      );
+    }
+
+    return {
+      id: operador ? operador.id : null,
+      matricula: colab.matricula,
+      nome: operador ? operador.nome : colab.nome,
+      cargo: (operador ? operador.cargo : colab.funcao) || 'Monitor',
+      papel: operador ? operador.papel : 'OPERADOR',
+    };
   }
 
   public static async listarBloqueios(): Promise<BloqueioColaborador[]> {

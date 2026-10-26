@@ -15,6 +15,25 @@ export class ColaboradoresController {
     }
   }
 
+  public async validarOperador(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { codigo } = req.body;
+      const operador = await ColaboradoresService.validarMonitorPorCracha(codigo);
+      res.status(200).json({
+        sucesso: true,
+        dados: {
+          id: operador.id,
+          matricula: operador.matricula,
+          nome: operador.nome,
+          cargo: operador.cargo,
+          papel: operador.papel,
+        },
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   public async listarBloqueios(_req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const bloqueios = await ColaboradoresService.listarBloqueios();

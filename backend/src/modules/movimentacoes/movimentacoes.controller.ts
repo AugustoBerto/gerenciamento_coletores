@@ -4,13 +4,14 @@ import { MovimentacoesService } from './movimentacoes.service';
 export class MovimentacoesController {
   public async retirada(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { matricula, patrimonio } = req.body;
+      const { matricula, patrimonio, crachaOperador } = req.body;
       const operadorId = req.operador!.id;
 
       const movimentacao = await MovimentacoesService.retirada({
         matricula: Number(matricula),
         patrimonio: String(patrimonio),
         operadorId,
+        crachaOperador: crachaOperador ? String(crachaOperador) : null,
       });
 
       res.status(201).json({
@@ -57,7 +58,7 @@ export class MovimentacoesController {
   public async devolucao(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const { avaria, motivoManutencao, numeroOs, observacao } = req.body;
+      const { avaria, motivoManutencao, numeroOs, observacao, crachaOperador } = req.body;
       const operadorId = req.operador!.id;
 
       const resultado = await MovimentacoesService.devolucao(id, {
@@ -66,6 +67,7 @@ export class MovimentacoesController {
         numeroOs: numeroOs ? String(numeroOs).trim() : null,
         observacao: observacao ? String(observacao).trim() : null,
         operadorId,
+        crachaOperador: crachaOperador ? String(crachaOperador) : null,
       });
 
       res.status(200).json({

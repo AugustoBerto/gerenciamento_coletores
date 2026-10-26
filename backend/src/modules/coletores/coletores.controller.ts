@@ -91,7 +91,7 @@ export class ColetoresController {
 
       const coletor = await ColetoresService.enviarManutencao(
         id,
-        String(motivo || 'Defeito apontado por operador'),
+        String(motivo || 'Defeito apontado por monitor'),
         operadorId,
         String(numeroOs || '')
       );
@@ -169,6 +169,19 @@ export class ColetoresController {
         sucesso: true,
         mensagem: 'Coletor reativado com sucesso.',
         dados: coletor,
+      });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  public async excluir(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { id } = req.params;
+      const resultado = await ColetoresService.excluir(id);
+      res.status(200).json({
+        sucesso: true,
+        mensagem: resultado.mensagem,
       });
     } catch (err) {
       next(err);

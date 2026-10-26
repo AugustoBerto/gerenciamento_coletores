@@ -10,6 +10,7 @@ export interface RetiradaDTO {
   matricula: number;
   patrimonio: string;
   operadorId: string;
+  crachaOperador?: string | null;
 }
 
 export interface DevolucaoDTO {
@@ -18,6 +19,7 @@ export interface DevolucaoDTO {
   numeroOs?: string | null;
   observacao?: string | null;
   operadorId: string;
+  crachaOperador?: string | null;
 }
 
 export class MovimentacoesService {
@@ -55,16 +57,41 @@ export class MovimentacoesService {
     return resultado;
   }
 
-  public static async retirada({ matricula, patrimonio, operadorId }: RetiradaDTO): Promise<Movimentacao> {
+  public static async retirada({
+    matricula,
+    patrimonio,
+    operadorId,
+    crachaOperador,
+  }: RetiradaDTO): Promise<Movimentacao> {
     const patLimpo = String(patrimonio || '').trim();
     if (!/^[0-9]{7}$/.test(patLimpo)) {
       throw new AppError('O patrimônio do coletor deve conter exatamente 7 dígitos numéricos.', 400, 'FORMATO_PATRIMONIO_INVALIDO');
     }
 
-    // 1. Valida elegibilidade do colaborador e trava de custódia diretamente pela matrícula
+    // 1. Identifica o monitor liberador responsável (sem criar usuário na whitelist)
+    let operadorSaidaId = operadorId;
+    let matriculaOperadorLiberador: number | null = null;
+    if (crachaOperador) {
+      const opLiberador = await ColaboradoresService.validarMonitorPorCracha(crachaOperador);
+      if (opLiberador.id) {
+        operadorSaidaId = opLiberador.id;
+      }
+      matriculaOperadorLiberador = opLiberador.matricula;
+    }
+
+    // 2. Valida elegibilidade do colaborador e trava de custódia diretamente pela matrícula
     const colaborador = await ColaboradoresService.validarPorMatricula(Number(matricula));
 
-    // 2. Transação atômica com lock pessimista
+    // 3. Regra de integridade: monitor e colaborador não podem ser a mesma pessoa física
+    if (matriculaOperadorLiberador && matriculaOperadorLiberador === colaborador.matricula) {
+      throw new AppError(
+        'O monitor responsável pela liberação não pode ser o mesmo colaborador que está retirando o coletor.',
+        400,
+        'MESMO_OPERADOR_E_COLABORADOR'
+      );
+    }
+
+    // 4. Transação atômica com lock pessimista
     const queryRunner = AppDataSource.createQueryRunner();
     await queryRunner.connect();
     await queryRunner.startTransaction();
@@ -97,7 +124,7 @@ export class MovimentacoesService {
         matriculaColaborador: colaborador.matricula,
         nomeColaborador: colaborador.nome,
         setorColaborador: colaborador.setor,
-        operadorSaidaId: operadorId,
+        operadorSaidaId,
         dataSaida: new Date(),
       });
       await queryRunner.manager.save(movimentacao);
@@ -262,11 +289,28 @@ export class MovimentacoesService {
         throw new AppError('Coletor associado não encontrado.', 404, 'COLETOR_NAO_ENCONTRADO');
       }
 
+      // 1. Identifica o monitor de retorno responsável (sem criar usuário na whitelist)
+      let operadorRetornoId = dto.operadorId;
+      if (dto.crachaOperador) {
+        const opRecebedor = await ColaboradoresService.validarMonitorPorCracha(dto.crachaOperador);
+        if (opRecebedor.id) {
+          operadorRetornoId = opRecebedor.id;
+        }
+
+        if (opRecebedor.matricula === mov.matriculaColaborador) {
+          throw new AppError(
+            'O monitor que recebe a devolução não pode ser o mesmo colaborador que estava em posse do coletor.',
+            400,
+            'MESMO_OPERADOR_E_COLABORADOR'
+          );
+        }
+      }
+
       const dataRetorno = new Date();
       const minutosUso = Math.max(0, Math.floor((dataRetorno.getTime() - new Date(mov.dataSaida).getTime()) / 60000));
 
       mov.dataRetorno = dataRetorno;
-      mov.operadorRetornoId = dto.operadorId;
+      mov.operadorRetornoId = operadorRetornoId;
       mov.minutosUso = minutosUso;
       mov.observacaoDevolucao = dto.observacao || (dto.avaria ? dto.motivoManutencao || 'Avaria relatada' : null);
       await queryRunner.manager.save(mov);
@@ -289,7 +333,7 @@ export class MovimentacoesService {
         // Registra histórico de manutenção
         const hist = queryRunner.manager.create(HistoricoManutencao, {
           coletorId: coletor.id,
-          operadorId: dto.operadorId,
+          operadorId: operadorRetornoId,
           motivoEntrada: motivo,
           numeroOs: numeroOs,
           dataEntrada: dataRetorno,

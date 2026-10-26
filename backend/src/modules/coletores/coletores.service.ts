@@ -2,6 +2,7 @@ import { AppDataSource } from '../../config/database';
 import { AppError } from '../../shared/errors/AppError';
 import { Coletor, StatusColetor } from '../../database/entities/Coletor';
 import { HistoricoManutencao } from '../../database/entities/HistoricoManutencao';
+import { Movimentacao } from '../../database/entities/Movimentacao';
 import { Setor } from '../../database/entities/Setor';
 
 export interface CriarColetorDTO {
@@ -257,5 +258,36 @@ export class ColetoresService {
     const repo = AppDataSource.getRepository(Coletor);
     await repo.save(coletor);
     return this.buscarPorId(coletor.id);
+  }
+
+  public static async excluir(id: string): Promise<{ mensagem: string }> {
+    const coletor = await this.buscarPorId(id);
+    if (coletor.status === 'EM_USO') {
+      throw new AppError(
+        'Não é possível excluir um coletor que está sob custódia ativa. Realize a devolução primeiro.',
+        409,
+        'COLETOR_EM_USO'
+      );
+    }
+
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      await queryRunner.manager.delete(HistoricoManutencao, { coletorId: id });
+      await queryRunner.manager.delete(Movimentacao, { coletorId: id });
+      await queryRunner.manager.delete(Coletor, { id });
+
+      await queryRunner.commitTransaction();
+      return {
+        mensagem: `Coletor patrimônio ${coletor.patrimonio} excluído permanentemente com sucesso.`,
+      };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 }

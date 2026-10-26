@@ -3,6 +3,9 @@ import { AppDataSource } from '../../config/database';
 import { Operador } from '../../database/entities/Operador';
 import { Setor } from '../../database/entities/Setor';
 import { Coletor } from '../../database/entities/Coletor';
+import { Movimentacao } from '../../database/entities/Movimentacao';
+import { HistoricoManutencao } from '../../database/entities/HistoricoManutencao';
+import { BloqueioColaborador } from '../../database/entities/BloqueioColaborador';
 import { AppError } from '../../shared/errors/AppError';
 
 export interface NovoUsuarioDTO {
@@ -45,7 +48,7 @@ export class ConfiguracoesService {
         u.matricula,
         u.usuario,
         u.nome,
-        COALESCE(u.funcao, 'Operador Almoxarifado') AS cargo,
+        COALESCE(u.funcao, 'Monitor') AS cargo,
         COALESCE(u.setor, 'Almoxarifado') AS setor
       FROM autenticacao.usuarios u
       WHERE ($1::bigint IS NOT NULL AND u.matricula = $1)
@@ -76,7 +79,7 @@ export class ConfiguracoesService {
         c.matricula,
         c.nome,
         COALESCE(l.nome_setor, 'Setor Operacional') AS setor,
-        COALESCE(l.funcao, 'Operador') AS cargo
+        COALESCE(l.funcao, 'Monitor') AS cargo
       FROM colaborador.colaboradores c
       LEFT JOIN colaborador.lista_funcionario l ON l.matricula = c.matricula
       WHERE ($1::bigint IS NOT NULL AND (c.matricula = $1 OR c.codbarras = $1::bigint))
@@ -104,6 +107,15 @@ export class ConfiguracoesService {
       'Usuário corporativo ou matrícula não localizada na base da fábrica.',
       404,
       'USUARIO_NAO_ENCONTRADO'
+    );
+  }
+
+  private static isContaSistemaProtegida(u: Operador): boolean {
+    const usuariosFixos = ['suporte.ti', 'monitor.geral'];
+    const matriculasFixas = [9999001, 9999002];
+    return (
+      usuariosFixos.includes(String(u.usuario || '').toLowerCase()) ||
+      matriculasFixas.includes(Number(u.matricula))
     );
   }
 
@@ -140,9 +152,9 @@ export class ConfiguracoesService {
 
     if (existente) {
       if (existente.ativo) {
-        throw new AppError('Este operador já está cadastrado e ativo no sistema.', 409, 'OPERADOR_DUPLICADO');
+        throw new AppError('Este monitor já está cadastrado e ativo no sistema.', 409, 'OPERADOR_DUPLICADO');
       }
-      // Reativa operador inativo
+      // Reativa monitor inativo
       existente.ativo = true;
       existente.papel = papelAtribuido;
       if (dto.nome) existente.nome = dto.nome;
@@ -154,7 +166,7 @@ export class ConfiguracoesService {
       matricula,
       usuario: usuarioFormatado,
       nome: dto.nome || usuarioFormatado,
-      cargo: dto.cargo || 'Operador Almoxarifado',
+      cargo: dto.cargo || 'Monitor',
       papel: papelAtribuido,
       ativo: true,
     });
@@ -171,16 +183,25 @@ export class ConfiguracoesService {
     const operador = await operadorRepo.findOne({ where: { id } });
 
     if (!operador) {
-      throw new AppError('Operador não encontrado.', 404, 'OPERADOR_NAO_ENCONTRADO');
+      throw new AppError('Monitor não encontrado.', 404, 'OPERADOR_NAO_ENCONTRADO');
     }
 
-    // Regra: Imutabilidade do perfil técnico fixo suporte.ti
-    if (operador.usuario === 'suporte.ti') {
-      if (dto.papel && dto.papel !== 'TI') {
-        throw new AppError('O papel do perfil padrão suporte.ti é fixo como TI e não pode ser alterado.', 400, 'PERFIL_TI_FIXO');
-      }
-      if (dto.ativo === false) {
-        throw new AppError('O perfil padrão suporte.ti não pode ser inativado.', 400, 'PERFIL_TI_IMUTAVEL');
+    // Regra: Imutabilidade dos perfis padrão do sistema (suporte.ti e monitor.geral)
+    if (this.isContaSistemaProtegida(operador)) {
+      if (operador.usuario === 'suporte.ti') {
+        if (dto.papel && dto.papel !== 'TI') {
+          throw new AppError('O papel do perfil padrão suporte.ti é fixo como TI e não pode ser alterado.', 400, 'PERFIL_TI_FIXO');
+        }
+        if (dto.ativo === false) {
+          throw new AppError('O perfil padrão suporte.ti não pode ser inativado.', 400, 'PERFIL_TI_IMUTAVEL');
+        }
+      } else {
+        if (dto.papel && dto.papel !== 'OPERADOR') {
+          throw new AppError('O papel do perfil padrão Monitor Geral é fixo e não pode ser alterado.', 400, 'PERFIL_MONITOR_GERAL_FIXO');
+        }
+        if (dto.ativo === false) {
+          throw new AppError('O perfil padrão Monitor Geral não pode ser inativado.', 400, 'PERFIL_MONITOR_GERAL_IMUTAVEL');
+        }
       }
     }
 
@@ -231,6 +252,112 @@ export class ConfiguracoesService {
     }
 
     return operadorRepo.save(operador);
+  }
+
+  public static async excluirUsuario(
+    id: string,
+    solicitante: { id: string; papel: 'ADMIN' | 'TI' | 'OPERADOR' }
+  ): Promise<{ mensagem: string }> {
+    const operadorRepo = AppDataSource.getRepository(Operador);
+    const operador = await operadorRepo.findOne({ where: { id } });
+
+    if (!operador) {
+      throw new AppError('Monitor não encontrado.', 404, 'OPERADOR_NAO_ENCONTRADO');
+    }
+
+    if (this.isContaSistemaProtegida(operador)) {
+      throw new AppError(
+        'Os perfis padrão do sistema (Monitor Geral e Suporte TI) são protegidos e não podem ser excluídos.',
+        400,
+        'PERFIL_SISTEMA_PROTEGIDO'
+      );
+    }
+
+    if (solicitante.id === id) {
+      throw new AppError('Você não pode excluir seu próprio usuário.', 400, 'AUTO_EXCLUSAO_PROIBIDA');
+    }
+
+    if (solicitante.papel === 'TI') {
+      if (operador.papel === 'ADMIN' || operador.papel === 'TI') {
+        throw new AppError(
+          'Perfil de TI não tem permissão para excluir Administradores ou outros técnicos de TI.',
+          403,
+          'PERMISSAO_NEGADA_TI'
+        );
+      }
+    }
+
+    if (solicitante.papel === 'ADMIN' && operador.papel === 'TI') {
+      throw new AppError(
+        'Administradores não podem excluir usuários do perfil de TI.',
+        403,
+        'PERMISSAO_NEGADA_ADMIN_TI'
+      );
+    }
+
+    if (operador.papel === 'ADMIN' && operador.ativo) {
+      const activeAdmins = await operadorRepo.count({
+        where: { papel: 'ADMIN', ativo: true },
+      });
+      if (activeAdmins <= 1) {
+        throw new AppError(
+          'Não é permitido excluir o único Administrador ativo do sistema.',
+          400,
+          'ULTIMO_ADMIN_PROIBIDO'
+        );
+      }
+    }
+
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    try {
+      // Localiza conta de sistema (Monitor Geral ou Suporte TI) para preservar integridade referencial de históricos
+      const contaFallback = await queryRunner.manager.findOne(Operador, {
+        where: [
+          { matricula: 9999002 },
+          { usuario: 'monitor.geral' },
+          { matricula: 9999001 },
+          { usuario: 'suporte.ti' },
+        ],
+      });
+
+      if (contaFallback && contaFallback.id !== id) {
+        await queryRunner.manager.update(
+          Movimentacao,
+          { operadorSaidaId: id },
+          { operadorSaidaId: contaFallback.id }
+        );
+        await queryRunner.manager.update(
+          Movimentacao,
+          { operadorRetornoId: id },
+          { operadorRetornoId: contaFallback.id }
+        );
+        await queryRunner.manager.update(
+          HistoricoManutencao,
+          { operadorId: id },
+          { operadorId: contaFallback.id }
+        );
+        await queryRunner.manager.update(
+          BloqueioColaborador,
+          { operadorId: id },
+          { operadorId: contaFallback.id }
+        );
+      }
+
+      await queryRunner.manager.delete(Operador, { id });
+      await queryRunner.commitTransaction();
+
+      return {
+        mensagem: `Monitor "${operador.nome}" (@${operador.usuario}) excluído com sucesso.`,
+      };
+    } catch (err) {
+      await queryRunner.rollbackTransaction();
+      throw err;
+    } finally {
+      await queryRunner.release();
+    }
   }
 
   // --- Gestão de Setores ---

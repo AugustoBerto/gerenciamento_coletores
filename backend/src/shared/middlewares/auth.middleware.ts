@@ -52,11 +52,11 @@ export const authMiddleware = async (
     });
 
     if (!operador) {
-      throw new AppError('Operador não cadastrado ou não sincronizado.', 401, 'OPERADOR_NAO_ENCONTRADO');
+      throw new AppError('Monitor não cadastrado ou não sincronizado.', 401, 'OPERADOR_NAO_ENCONTRADO');
     }
 
     if (!operador.ativo) {
-      throw new AppError('Acesso suspenso para este operador.', 403, 'OPERADOR_INATIVO');
+      throw new AppError('Acesso suspenso para este monitor.', 403, 'OPERADOR_INATIVO');
     }
 
     req.operador = {

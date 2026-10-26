@@ -9,12 +9,13 @@ router.use(authMiddleware);
 
 router.get('/', controller.listar);
 router.get('/:id', controller.buscarPorId);
-router.post('/', requireTI, controller.criar);
-router.put('/:id', requireTI, controller.atualizar);
+router.post('/', controller.criar);
+router.put('/:id', controller.atualizar);
 router.post('/:id/solicitar-manutencao', controller.solicitarManutencao);
 router.post('/:id/enviar-manutencao', requireStrictTI, controller.enviarManutencao);
 router.post('/:id/concluir-manutencao', requireStrictTI, controller.concluirManutencao);
+router.post('/:id/inativar', requireTI, controller.inativar);
 router.post('/:id/reativar', requireTI, controller.reativar);
-router.delete('/:id', requireTI, controller.inativar);
+router.delete('/:id', requireTI, controller.excluir);
 
 export default router;

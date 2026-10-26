@@ -8,6 +8,7 @@ const controller = new ColaboradoresController();
 router.use(authMiddleware);
 
 router.post('/validar-cracha', controller.validarCracha);
+router.post('/validar-operador', controller.validarOperador);
 router.get('/bloqueios', controller.listarBloqueios);
 router.post('/bloqueios', controller.criarBloqueio);
 router.delete('/bloqueios/:id', controller.removerBloqueio);

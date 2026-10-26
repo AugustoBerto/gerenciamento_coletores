@@ -63,6 +63,67 @@ export class AuthService {
     }
   }
 
+  public static async assegurarMonitorGeral(): Promise<void> {
+    try {
+      const operadorRepo = AppDataSource.getRepository(Operador);
+      const operadorExistente = await operadorRepo.findOne({
+        where: [{ usuario: 'monitor.geral' }, { matricula: 9999002 }],
+      });
+
+      const senhaPadrao = process.env.MONITOR_GERAL_PASSWORD || 'dass@monitor';
+      const hash = await bcrypt.hash(senhaPadrao, 10);
+
+      if (!operadorExistente) {
+        const novoOperador = operadorRepo.create({
+          matricula: 9999002,
+          usuario: 'monitor.geral',
+          nome: 'Monitor Geral',
+          cargo: 'Monitor Geral',
+          papel: 'OPERADOR',
+          ativo: true,
+          senhaHash: hash,
+        });
+        await operadorRepo.save(novoOperador);
+        console.log('[Auth] Perfil padrão monitor.geral criado com sucesso no schema gestao_coletores.');
+      } else {
+        let precisaSalvar = false;
+        if (operadorExistente.usuario !== 'monitor.geral') {
+          operadorExistente.usuario = 'monitor.geral';
+          precisaSalvar = true;
+        }
+        if (operadorExistente.nome !== 'Monitor Geral') {
+          operadorExistente.nome = 'Monitor Geral';
+          precisaSalvar = true;
+        }
+        if (operadorExistente.cargo !== 'Monitor Geral') {
+          operadorExistente.cargo = 'Monitor Geral';
+          precisaSalvar = true;
+        }
+        if (operadorExistente.papel !== 'OPERADOR') {
+          operadorExistente.papel = 'OPERADOR';
+          precisaSalvar = true;
+        }
+        const senhaCompativel =
+          operadorExistente.senhaHash &&
+          (await bcrypt.compare(senhaPadrao, operadorExistente.senhaHash));
+        if (!senhaCompativel) {
+          operadorExistente.senhaHash = hash;
+          precisaSalvar = true;
+        }
+        if (!operadorExistente.ativo) {
+          operadorExistente.ativo = true;
+          precisaSalvar = true;
+        }
+        if (precisaSalvar) {
+          await operadorRepo.save(operadorExistente);
+          console.log('[Auth] Perfil monitor.geral atualizado com sucesso.');
+        }
+      }
+    } catch (err) {
+      console.error('[Auth] Falha ao assegurar criação do monitor.geral:', err);
+    }
+  }
+
   public static async login(usuario: string, senha: string): Promise<{
     token: string;
     operador: {
@@ -79,7 +140,7 @@ export class AuthService {
 
     const operadorRepo = AppDataSource.getRepository(Operador);
 
-    // 1. Verificação de Autenticação Local (RBAC local gestao_coletores, ex: suporte.ti)
+    // 1. Verificação de Autenticação Local (RBAC local gestao_coletores, ex: suporte.ti / monitor.geral)
     const operadorLocal = await operadorRepo.findOne({
       where: matriculaNum
         ? [{ matricula: matriculaNum }, { usuario: usuarioFormatado }]
@@ -88,12 +149,13 @@ export class AuthService {
 
     if (operadorLocal && operadorLocal.senhaHash) {
       const senhaValida = await bcrypt.compare(senha, operadorLocal.senhaHash);
+
       if (!senhaValida) {
         throw new AppError('Usuário ou senha incorretos.', 401, 'CREDENCIAS_INVALIDAS');
       }
 
       if (!operadorLocal.ativo) {
-        throw new AppError('O acesso deste operador ao sistema de coletores está inativo. Contate o Administrador.', 403, 'OPERADOR_INATIVO');
+        throw new AppError('O acesso deste monitor ao sistema de coletores está inativo. Contate o Administrador.', 403, 'OPERADOR_INATIVO');
       }
 
       const jwtSecret = process.env.JWT_SECRET;
@@ -101,6 +163,7 @@ export class AuthService {
         throw new AppError('Configuração de JWT indisponível no servidor.', 500, 'JWT_SECRET_MISSING');
       }
 
+      const isOperadorTerminal = operadorLocal.usuario === 'monitor.geral';
       const token = jwt.sign(
         {
           id: operadorLocal.id,
@@ -110,7 +173,7 @@ export class AuthService {
           papel: operadorLocal.papel,
         },
         jwtSecret,
-        { expiresIn: '8h' }
+        { expiresIn: isOperadorTerminal ? '30d' : '12h' }
       );
 
       return {
@@ -163,7 +226,7 @@ export class AuthService {
 
     const matricula = Number(decoded.matricula || authResponse.data?.data?.matricula);
     const username = String(decoded.usuario || decoded.username || usuario).toLowerCase();
-    const nome = String(decoded.nome || authResponse.data?.data?.nome || 'Operador Almoxarifado');
+    const nome = String(decoded.nome || authResponse.data?.data?.nome || 'Monitor');
     const cargo = String(decoded.funcao || authResponse.data?.data?.funcao || '');
 
     const totalAdminsAtivos = await operadorRepo.count({ where: { papel: 'ADMIN', ativo: true } });
@@ -193,7 +256,7 @@ export class AuthService {
         operador = await operadorRepo.save(operador);
       }
     } else {
-      // Regra RN09: Whitelist Estrita de Operadores Cadastrados
+      // Regra RN09: Whitelist Estrita de Monitores Cadastrados
       if (!operador) {
         throw new AppError(
           'Acesso não autorizado. Seu usuário corporativo não está cadastrado no Sistema de Coletores. Solicite liberação a um Administrador.',
@@ -204,7 +267,7 @@ export class AuthService {
 
       if (!operador.ativo) {
         throw new AppError(
-          'O acesso deste operador ao sistema de coletores está inativo. Contate o Administrador.',
+          'O acesso deste monitor ao sistema de coletores está inativo. Contate o Administrador.',
           403,
           'OPERADOR_INATIVO'
         );

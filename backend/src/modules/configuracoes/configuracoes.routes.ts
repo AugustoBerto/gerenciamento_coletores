@@ -106,7 +106,7 @@ router.post('/usuarios', requireTI, async (req: Request, res: Response, next: Ne
     );
     res.status(201).json({
       sucesso: true,
-      mensagem: `Operador ${novo.usuario} cadastrado com sucesso.`,
+      mensagem: `Monitor ${novo.usuario} cadastrado com sucesso.`,
       dados: novo,
     });
   } catch (err) {
@@ -127,8 +127,22 @@ router.patch('/usuarios/:id', requireTI, async (req: Request, res: Response, nex
 
     res.status(200).json({
       sucesso: true,
-      mensagem: 'Dados do operador atualizados com sucesso.',
+      mensagem: 'Dados do monitor atualizados com sucesso.',
       dados: atualizado,
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+router.delete('/usuarios/:id', requireTI, async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    const { id } = req.params;
+    const resultado = await ConfiguracoesService.excluirUsuario(id, req.operador!);
+
+    res.status(200).json({
+      sucesso: true,
+      mensagem: resultado.mensagem,
     });
   } catch (err) {
     next(err);
@@ -149,7 +163,7 @@ router.get('/setores', async (req: Request, res: Response, next: NextFunction) =
   }
 });
 
-router.post('/setores', requireTI, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/setores', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { nome, descricao } = req.body;
     const novo = await ConfiguracoesService.cadastrarSetor({ nome, descricao });
@@ -163,7 +177,7 @@ router.post('/setores', requireTI, async (req: Request, res: Response, next: Nex
   }
 });
 
-router.put('/setores/:id', requireTI, async (req: Request, res: Response, next: NextFunction) => {
+router.put('/setores/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const { nome, descricao, ativo } = req.body;
@@ -178,7 +192,7 @@ router.put('/setores/:id', requireTI, async (req: Request, res: Response, next: 
   }
 });
 
-router.patch('/setores/:id/status', requireTI, async (req: Request, res: Response, next: NextFunction) => {
+router.patch('/setores/:id/status', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const atualizado = await ConfiguracoesService.toggleStatusSetor(id);
@@ -192,7 +206,7 @@ router.patch('/setores/:id/status', requireTI, async (req: Request, res: Respons
   }
 });
 
-router.delete('/setores/:id', requireTI, async (req: Request, res: Response, next: NextFunction) => {
+router.delete('/setores/:id', async (req: Request, res: Response, next: NextFunction) => {
   try {
     const { id } = req.params;
     const resultado = await ConfiguracoesService.excluirSetor(id);

@@ -12,6 +12,7 @@ const bootstrap = async () => {
   try {
     await connectDatabase();
     await AuthService.assegurarSuporteTI();
+    await AuthService.assegurarMonitorGeral();
     const app = createApp();
 
     const server = app.listen(PORT, '0.0.0.0', () => {
