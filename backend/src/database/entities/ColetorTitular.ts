@@ -20,9 +20,6 @@ export class ColetorTitular {
   @JoinColumn({ name: 'coletor_id' })
   coletor!: Coletor;
 
-  @Column({ type: 'smallint' })
-  turno!: number; // 1, 2 ou 3
-
   @Column({
     name: 'matricula_colaborador',
     type: 'bigint',

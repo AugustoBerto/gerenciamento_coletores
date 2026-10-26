@@ -83,7 +83,7 @@
               <tr>
                 <th class="py-3 px-4">Patrimônio</th>
                 <th class="py-3 px-4">Colaborador</th>
-                <th class="py-3 px-4">Preferência / Turno</th>
+                <th class="py-3 px-4">Preferência</th>
                 <th class="py-3 px-4">Setor</th>
                 <th class="py-3 px-4">Saída</th>
                 <th class="py-3 px-4">Entregue Por</th>

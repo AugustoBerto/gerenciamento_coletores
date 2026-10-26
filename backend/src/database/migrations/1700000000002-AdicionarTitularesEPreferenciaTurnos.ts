@@ -8,11 +8,10 @@ export class AdicionarTitularesEPreferenciaTurnos1700000000002 implements Migrat
       CREATE TABLE IF NOT EXISTS gestao_coletores.coletor_titulares (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         coletor_id UUID NOT NULL REFERENCES gestao_coletores.coletores(id) ON DELETE CASCADE,
-        turno SMALLINT NOT NULL CHECK (turno IN (1, 2, 3)),
         matricula_colaborador BIGINT NOT NULL,
         nome_colaborador VARCHAR(120) NOT NULL,
         criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT uq_coletor_titular_turno UNIQUE (coletor_id, turno)
+        CONSTRAINT uq_coletor_titular_matricula UNIQUE (coletor_id, matricula_colaborador)
       );
     `);
 

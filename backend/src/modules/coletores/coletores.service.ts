@@ -8,7 +8,6 @@ import { ColetorTitular } from '../../database/entities/ColetorTitular';
 import { ColaboradoresService } from '../colaboradores/colaboradores.service';
 
 export interface TitularInputDTO {
-  turno: number;
   matriculaColaborador: number;
   nomeColaborador?: string;
 }
@@ -31,6 +30,8 @@ export interface AtualizarColetorDTO {
 }
 
 export class ColetoresService {
+  private static readonly MAX_PREFERENCIA_POR_COLETOR = 5;
+
   private static async sincronizarTitulares(
     coletorId: string,
     titularesInput?: TitularInputDTO[]
@@ -39,22 +40,26 @@ export class ColetoresService {
 
     const titularRepo = AppDataSource.getRepository(ColetorTitular);
 
-    // Remove vínculos anteriores deste coletor
-    await titularRepo.delete({ coletorId });
-
-    const validos: Array<{ turno: number; matriculaColaborador: number; nomeColaborador: string }> = [];
-    const turnosVistos = new Set<number>();
+    const validos: Array<{ matriculaColaborador: number; nomeColaborador: string }> = [];
+    const matriculasVistas = new Set<number>();
 
     for (const item of titularesInput) {
-      const turno = Number(item.turno);
       const matricula = Number(item.matriculaColaborador);
-      if (![1, 2, 3].includes(turno) || !matricula || isNaN(matricula)) {
+      if (!matricula || isNaN(matricula)) {
         continue;
       }
-      if (turnosVistos.has(turno)) {
+      if (matriculasVistas.has(matricula)) {
         continue;
       }
-      turnosVistos.add(turno);
+      matriculasVistas.add(matricula);
+
+      if (validos.length >= this.MAX_PREFERENCIA_POR_COLETOR) {
+        throw new AppError(
+          `A lista de preferência permite no máximo ${this.MAX_PREFERENCIA_POR_COLETOR} colaboradores por coletor.`,
+          400,
+          'LIMITE_PREFERENCIA_EXCEDIDO'
+        );
+      }
 
       let nome = item.nomeColaborador ? String(item.nomeColaborador).trim() : '';
       if (!nome) {
@@ -62,21 +67,19 @@ export class ColetoresService {
         nome = colab.nome;
       }
 
-      // Garante que o mesmo colaborador não fique como titular de outro coletor no mesmo turno
-      await titularRepo.delete({ matriculaColaborador: matricula, turno });
-
       validos.push({
-        turno,
         matriculaColaborador: matricula,
         nomeColaborador: nome,
       });
     }
 
+    // Remove vínculos anteriores deste coletor e recria a lista atualizada
+    await titularRepo.delete({ coletorId });
+
     if (validos.length > 0) {
       const entidades = validos.map((v) =>
         titularRepo.create({
           coletorId,
-          turno: v.turno,
           matriculaColaborador: v.matriculaColaborador,
           nomeColaborador: v.nomeColaborador,
         })
@@ -120,7 +123,7 @@ export class ColetoresService {
 
     query
       .orderBy('c.patrimonio', 'ASC')
-      .addOrderBy('titulares.turno', 'ASC')
+      .addOrderBy('titulares.criadoEm', 'ASC')
       .skip(skip)
       .take(limit);
 
@@ -144,7 +147,7 @@ export class ColetoresService {
         titulares: true,
       },
       order: {
-        titulares: { turno: 'ASC' },
+        titulares: { criadoEm: 'ASC' },
       },
     });
 

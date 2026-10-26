@@ -34,12 +34,28 @@ export const connectDatabase = async (): Promise<DataSource> => {
       CREATE TABLE IF NOT EXISTS gestao_coletores.coletor_titulares (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         coletor_id UUID NOT NULL REFERENCES gestao_coletores.coletores(id) ON DELETE CASCADE,
-        turno SMALLINT NOT NULL CHECK (turno IN (1, 2, 3)),
         matricula_colaborador BIGINT NOT NULL,
         nome_colaborador VARCHAR(120) NOT NULL,
         criado_em TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT uq_coletor_titular_turno UNIQUE (coletor_id, turno)
+        CONSTRAINT uq_coletor_titular_matricula UNIQUE (coletor_id, matricula_colaborador)
       );
+      ALTER TABLE gestao_coletores.coletor_titulares
+        DROP CONSTRAINT IF EXISTS uq_coletor_titular_turno,
+        DROP COLUMN IF EXISTS turno;
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'uq_coletor_titular_matricula'
+        ) THEN
+          DELETE FROM gestao_coletores.coletor_titulares a
+          USING gestao_coletores.coletor_titulares b
+          WHERE a.id > b.id
+            AND a.coletor_id = b.coletor_id
+            AND a.matricula_colaborador = b.matricula_colaborador;
+          ALTER TABLE gestao_coletores.coletor_titulares
+            ADD CONSTRAINT uq_coletor_titular_matricula UNIQUE (coletor_id, matricula_colaborador);
+        END IF;
+      END $$;
       CREATE INDEX IF NOT EXISTS idx_coletor_titulares_matricula
         ON gestao_coletores.coletor_titulares (matricula_colaborador);
       CREATE INDEX IF NOT EXISTS idx_coletor_titulares_coletor

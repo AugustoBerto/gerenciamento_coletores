@@ -179,11 +179,11 @@
         >
           <div class="flex flex-wrap items-center gap-2">
             <span class="text-[11px] font-extrabold uppercase tracking-wider text-slate-600">
-              Preferência por Turno:
+              Coletor(es) Preferencial(is):
             </span>
             <div
               v-for="pref in colaboradorApto.coletoresPreferenciais"
-              :key="`${pref.coletorId}-${pref.turno}`"
+              :key="pref.coletorId"
               class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-medium"
               :class="
                 pref.status === 'DISPONIVEL'
@@ -193,7 +193,6 @@
             >
               <span class="text-amber-500 font-black">★</span>
               <span class="font-mono font-black text-slate-900">{{ pref.patrimonio }}</span>
-              <span class="text-[11px] text-slate-500">({{ pref.turno }}º Turno)</span>
               <span
                 class="text-[10px] font-bold px-1.5 py-0.5 rounded"
                 :class="
@@ -296,7 +295,7 @@
                 v-if="ehColetorPreferencialDoColaborador(c)"
                 class="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-300 text-[9px] font-black uppercase"
               >
-                ★ {{ obterTurnoDoColaboradorNoColetor(c) }}ºT
+                ★ Preferencial
               </span>
               <span v-else class="w-2 h-2 rounded-full bg-emerald-500 mt-1"></span>
             </div>
@@ -316,12 +315,12 @@
               </span>
             </div>
 
-            <!-- Titulares por Turno no Card -->
+            <!-- Lista de Preferência no Card -->
             <div v-if="c.titulares && c.titulares.length > 0" class="mt-2 pt-1.5 border-t border-slate-100 flex flex-wrap gap-1">
               <span
                 v-for="t in c.titulares"
-                :key="t.turno"
-                :title="`${t.turno}º Turno: ${t.nomeColaborador}`"
+                :key="t.matriculaColaborador"
+                :title="t.nomeColaborador"
                 class="text-[9px] px-1.5 py-0.5 rounded font-semibold truncate max-w-full"
                 :class="
                   colaboradorApto && Number(t.matriculaColaborador) === Number(colaboradorApto.matricula)
@@ -329,7 +328,7 @@
                     : 'bg-slate-100 text-slate-600'
                 "
               >
-                {{ t.turno }}ºT: {{ resumirNomeCurto(t.nomeColaborador) }}
+                {{ resumirNomeCurto(t.nomeColaborador) }}
               </span>
             </div>
           </div>
@@ -431,14 +430,6 @@ const ehColetorPreferencialDoColaborador = (coletor: any): boolean => {
   );
 };
 
-const obterTurnoDoColaboradorNoColetor = (coletor: any): number | null => {
-  if (!colaboradorApto.value || !coletor?.titulares) return null;
-  const titular = coletor.titulares.find(
-    (t: any) => Number(t.matriculaColaborador) === Number(colaboradorApto.value.matricula)
-  );
-  return titular ? titular.turno : null;
-};
-
 const resumirNomeCurto = (nomeCompleto?: string) => {
   if (!nomeCompleto) return '-';
   const partes = nomeCompleto.trim().split(/\s+/);
@@ -453,8 +444,7 @@ const avisoPreferenciaSelecionado = computed(() => {
     coletoresDisponiveis.value.find((item) => item.patrimonio === coletorSelecionado.value.patrimonio) ||
     coletorSelecionado.value;
 
-  const turnoTitular = obterTurnoDoColaboradorNoColetor(c);
-  if (turnoTitular) {
+  if (ehColetorPreferencialDoColaborador(c)) {
     return {
       tipo: 'TITULAR',
       titulo: 'Coletor preferencial do colaborador',

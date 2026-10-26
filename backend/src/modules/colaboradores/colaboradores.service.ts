@@ -12,7 +12,6 @@ export interface ColetorPreferencialInfo {
   marca: string;
   modelo: string;
   status: string;
-  turno: number;
 }
 
 export interface ColaboradorInfo {
@@ -228,7 +227,7 @@ export class ColaboradoresService {
     const vinculos = await titularRepo.find({
       where: { matriculaColaborador: matricula },
       relations: { coletor: true },
-      order: { turno: 'ASC' },
+      order: { criadoEm: 'ASC' },
     });
 
     const coletoresPreferenciais: ColetorPreferencialInfo[] = vinculos
@@ -239,7 +238,6 @@ export class ColaboradoresService {
         marca: v.coletor.marca,
         modelo: v.coletor.modelo,
         status: v.coletor.status,
-        turno: v.turno,
       }));
 
     return {

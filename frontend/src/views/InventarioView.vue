@@ -95,7 +95,7 @@
                 <th class="py-3 px-4">Patrimônio</th>
                 <th class="py-3 px-4">Marca / Modelo</th>
                 <th class="py-3 px-4">Setor</th>
-                <th class="py-3 px-4">Titulares (Turnos)</th>
+                <th class="py-3 px-4">Lista de Preferência</th>
                 <th class="py-3 px-4">Nº de Série</th>
                 <th class="py-3 px-4">Status</th>
                 <th class="py-3 px-4">Observação / Defeito</th>
@@ -123,12 +123,11 @@
                   <div v-if="c.titulares && c.titulares.length > 0" class="flex flex-wrap gap-1">
                     <span
                       v-for="t in c.titulares"
-                      :key="t.turno"
-                      :title="`${t.turno}º Turno: ${t.nomeColaborador} (Mat: ${t.matriculaColaborador})`"
-                      class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200"
+                      :key="t.matriculaColaborador"
+                      :title="`${t.nomeColaborador} (Mat: ${t.matriculaColaborador})`"
+                      class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200"
                     >
-                      <span class="font-black text-[#002B49]">{{ t.turno }}ºT:</span>
-                      <span class="truncate max-w-[110px]">{{ resumirNome(t.nomeColaborador) }}</span>
+                      <span class="truncate max-w-[115px]">{{ resumirNome(t.nomeColaborador) }}</span>
                     </span>
                   </div>
                   <span v-else class="text-gray-400 text-[11px]">Livre</span>
@@ -190,10 +189,9 @@
           <div v-if="c.titulares && c.titulares.length > 0" class="flex flex-wrap gap-1 pt-1">
             <span
               v-for="t in c.titulares"
-              :key="t.turno"
-              class="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200"
+              :key="t.matriculaColaborador"
+              class="inline-flex items-center px-2 py-0.5 rounded-md text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200"
             >
-              <span class="font-black text-[#002B49]">{{ t.turno }}ºT:</span>
               <span>{{ resumirNome(t.nomeColaborador) }}</span>
             </span>
           </div>
@@ -266,36 +264,26 @@
             </div>
           </div>
 
-          <!-- Titulares Preferenciais por Turno -->
+          <!-- Lista de Preferência (Até 5 Colaboradores) -->
           <div class="bg-slate-50 p-4 rounded-xl border border-slate-200/80 space-y-2.5">
             <div class="flex items-center justify-between">
               <span class="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                Titulares Preferenciais por Turno
+                Lista de Preferência ({{ coletorDetalhes.titulares?.length || 0 }}/5)
               </span>
               <span class="text-[10px] text-slate-400">Preferência não bloqueante</span>
             </div>
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div v-if="coletorDetalhes.titulares && coletorDetalhes.titulares.length > 0" class="flex flex-wrap gap-2">
               <div
-                v-for="turno in [1, 2, 3]"
-                :key="turno"
-                class="p-2.5 rounded-lg border text-xs"
-                :class="
-                  obterTitularPorTurno(coletorDetalhes, turno)
-                    ? 'bg-white border-slate-200 text-slate-800'
-                    : 'bg-slate-100/60 border-dashed border-slate-200 text-slate-400'
-                "
+                v-for="t in coletorDetalhes.titulares"
+                :key="t.matriculaColaborador"
+                class="px-2.5 py-1.5 rounded-lg border bg-white border-slate-200 text-xs flex items-center gap-2"
               >
-                <div class="text-[10px] font-black uppercase text-[#002B49]">{{ turno }}º Turno</div>
-                <template v-if="obterTitularPorTurno(coletorDetalhes, turno)">
-                  <div class="font-bold text-slate-900 truncate mt-0.5" :title="obterTitularPorTurno(coletorDetalhes, turno).nomeColaborador">
-                    {{ obterTitularPorTurno(coletorDetalhes, turno).nomeColaborador }}
-                  </div>
-                  <div class="text-[10px] text-slate-500 font-mono">
-                    Mat: {{ obterTitularPorTurno(coletorDetalhes, turno).matriculaColaborador }}
-                  </div>
-                </template>
-                <div v-else class="text-[11px] italic mt-0.5">Livre</div>
+                <span class="font-bold text-slate-900">{{ t.nomeColaborador }}</span>
+                <span class="text-[10px] text-slate-400 font-mono">Mat: {{ t.matriculaColaborador }}</span>
               </div>
+            </div>
+            <div v-else class="text-xs text-slate-400 italic">
+              Livre (Sem colaboradores vinculados na lista de preferência)
             </div>
           </div>
 
@@ -675,57 +663,57 @@
               </select>
             </div>
 
-            <!-- Titulares Preferenciais por Turno (1º, 2º e 3º Turno) -->
+            <!-- Lista de Preferência (Até 5 Colaboradores) -->
             <div class="pt-2 border-t border-slate-100 space-y-2.5">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-800">Titulares Preferenciais por Turno (Opcional)</span>
-                <span class="text-[10px] text-slate-400">Não bloqueia uso por outros</span>
+                <span class="text-xs font-bold text-slate-800">
+                  Lista de Preferência ({{ listaPreferenciaForm.length }}/5 Colaboradores)
+                </span>
+                <span class="text-[10px] text-slate-400">Independente de turno</span>
               </div>
               <div v-if="erroBuscaTitular" class="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] font-semibold">
                 {{ erroBuscaTitular }}
               </div>
-              <div class="space-y-2">
-                <div
-                  v-for="turno in ([1, 2, 3] as const)"
-                  :key="turno"
-                  class="p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5"
+
+              <div v-if="listaPreferenciaForm.length < 5" class="flex gap-1.5">
+                <input
+                  v-model="inputNovoTitular"
+                  type="text"
+                  placeholder="Digite a matrícula ou bipe o crachá..."
+                  class="flex-1 px-2.5 py-2 text-xs rounded-xl border border-slate-300 bg-white font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+                  @keydown.enter.prevent="adicionarColaboradorPreferencia"
+                />
+                <button
+                  type="button"
+                  :disabled="loadingBuscaTitular || !inputNovoTitular.trim()"
+                  @click="adicionarColaboradorPreferencia"
+                  class="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl disabled:opacity-50 transition"
                 >
-                  <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-extrabold text-[#002B49] uppercase">{{ turno }}º Turno</span>
-                    <button
-                      v-if="titularesForm[turno]"
-                      type="button"
-                      @click="removerTitularForm(turno)"
-                      class="text-[10px] font-bold text-rose-600 hover:underline"
-                    >
-                      Remover
-                    </button>
+                  {{ loadingBuscaTitular ? '...' : '+ Adicionar' }}
+                </button>
+              </div>
+
+              <div v-if="listaPreferenciaForm.length > 0" class="space-y-1.5">
+                <div
+                  v-for="item in listaPreferenciaForm"
+                  :key="item.matriculaColaborador"
+                  class="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs"
+                >
+                  <div>
+                    <div class="font-bold text-slate-900">{{ item.nomeColaborador }}</div>
+                    <div class="text-[10px] text-slate-500 font-mono">Mat: {{ item.matriculaColaborador }}</div>
                   </div>
-                  <div v-if="titularesForm[turno]" class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs">
-                    <div>
-                      <div class="font-bold text-slate-900">{{ titularesForm[turno]?.nomeColaborador }}</div>
-                      <div class="text-[10px] text-slate-500 font-mono">Matrícula: {{ titularesForm[turno]?.matriculaColaborador }}</div>
-                    </div>
-                    <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Vinculado</span>
-                  </div>
-                  <div v-else class="flex gap-1.5">
-                    <input
-                      v-model="inputTitularTurno[turno]"
-                      type="text"
-                      placeholder="Digite a matrícula ou bipe o crachá..."
-                      class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
-                      @keydown.enter.prevent="buscarTitularTurno(turno)"
-                    />
-                    <button
-                      type="button"
-                      :disabled="loadingTitularTurno[turno] || !inputTitularTurno[turno].trim()"
-                      @click="buscarTitularTurno(turno)"
-                      class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-lg disabled:opacity-50 transition"
-                    >
-                      {{ loadingTitularTurno[turno] ? '...' : 'Vincular' }}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    @click="removerColaboradorPreferencia(item.matriculaColaborador)"
+                    class="text-[11px] font-bold text-rose-600 hover:underline px-2 py-1"
+                  >
+                    Remover
+                  </button>
                 </div>
+              </div>
+              <div v-else class="text-[11px] text-slate-400 italic">
+                Nenhum colaborador vinculado na lista de preferência.
               </div>
             </div>
 
@@ -810,57 +798,57 @@
               </div>
             </div>
 
-            <!-- Titulares Preferenciais por Turno (1º, 2º e 3º Turno) -->
+            <!-- Lista de Preferência (Até 5 Colaboradores) -->
             <div class="pt-2 border-t border-slate-100 space-y-2.5">
               <div class="flex items-center justify-between">
-                <span class="text-xs font-bold text-slate-800">Titulares Preferenciais por Turno</span>
-                <span class="text-[10px] text-slate-400">Não bloqueia uso por outros</span>
+                <span class="text-xs font-bold text-slate-800">
+                  Lista de Preferência ({{ listaPreferenciaForm.length }}/5 Colaboradores)
+                </span>
+                <span class="text-[10px] text-slate-400">Independente de turno</span>
               </div>
               <div v-if="erroBuscaTitular" class="p-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-[11px] font-semibold">
                 {{ erroBuscaTitular }}
               </div>
-              <div class="space-y-2">
-                <div
-                  v-for="turno in ([1, 2, 3] as const)"
-                  :key="turno"
-                  class="p-2.5 rounded-xl border border-slate-200 bg-slate-50/70 space-y-1.5"
+
+              <div v-if="listaPreferenciaForm.length < 5" class="flex gap-1.5">
+                <input
+                  v-model="inputNovoTitular"
+                  type="text"
+                  placeholder="Digite a matrícula ou bipe o crachá..."
+                  class="flex-1 px-2.5 py-2 text-xs rounded-xl border border-slate-300 bg-white font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+                  @keydown.enter.prevent="adicionarColaboradorPreferencia"
+                />
+                <button
+                  type="button"
+                  :disabled="loadingBuscaTitular || !inputNovoTitular.trim()"
+                  @click="adicionarColaboradorPreferencia"
+                  class="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-xl disabled:opacity-50 transition"
                 >
-                  <div class="flex items-center justify-between">
-                    <span class="text-[11px] font-extrabold text-[#002B49] uppercase">{{ turno }}º Turno</span>
-                    <button
-                      v-if="titularesForm[turno]"
-                      type="button"
-                      @click="removerTitularForm(turno)"
-                      class="text-[10px] font-bold text-rose-600 hover:underline"
-                    >
-                      Remover
-                    </button>
+                  {{ loadingBuscaTitular ? '...' : '+ Adicionar' }}
+                </button>
+              </div>
+
+              <div v-if="listaPreferenciaForm.length > 0" class="space-y-1.5">
+                <div
+                  v-for="item in listaPreferenciaForm"
+                  :key="item.matriculaColaborador"
+                  class="flex items-center justify-between bg-slate-50 px-3 py-2 rounded-xl border border-slate-200 text-xs"
+                >
+                  <div>
+                    <div class="font-bold text-slate-900">{{ item.nomeColaborador }}</div>
+                    <div class="text-[10px] text-slate-500 font-mono">Mat: {{ item.matriculaColaborador }}</div>
                   </div>
-                  <div v-if="titularesForm[turno]" class="flex items-center justify-between bg-white px-2.5 py-1.5 rounded-lg border border-emerald-200 text-xs">
-                    <div>
-                      <div class="font-bold text-slate-900">{{ titularesForm[turno]?.nomeColaborador }}</div>
-                      <div class="text-[10px] text-slate-500 font-mono">Matrícula: {{ titularesForm[turno]?.matriculaColaborador }}</div>
-                    </div>
-                    <span class="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">Vinculado</span>
-                  </div>
-                  <div v-else class="flex gap-1.5">
-                    <input
-                      v-model="inputTitularTurno[turno]"
-                      type="text"
-                      placeholder="Digite a matrícula ou bipe o crachá..."
-                      class="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-slate-300 bg-white font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
-                      @keydown.enter.prevent="buscarTitularTurno(turno)"
-                    />
-                    <button
-                      type="button"
-                      :disabled="loadingTitularTurno[turno] || !inputTitularTurno[turno].trim()"
-                      @click="buscarTitularTurno(turno)"
-                      class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-800 text-xs font-bold rounded-lg disabled:opacity-50 transition"
-                    >
-                      {{ loadingTitularTurno[turno] ? '...' : 'Vincular' }}
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    @click="removerColaboradorPreferencia(item.matriculaColaborador)"
+                    class="text-[11px] font-bold text-rose-600 hover:underline px-2 py-1"
+                  >
+                    Remover
+                  </button>
                 </div>
+              </div>
+              <div v-else class="text-[11px] text-slate-400 italic">
+                Nenhum colaborador vinculado na lista de preferência.
               </div>
             </div>
 
@@ -1015,86 +1003,84 @@ const exibirAlerta = (msg: string, tipo: 'sucesso' | 'erro' = 'sucesso') => {
   }, 6000);
 };
 
-// Estado compartilhado de Titulares por Turno (Modais Novo / Editar Coletor)
-interface TitularTurnoItem {
-  turno: 1 | 2 | 3;
+// Estado compartilhado da Lista de Preferência (Modais Novo / Editar Coletor — até 5 colaboradores)
+interface PreferenciaColaboradorItem {
   matriculaColaborador: number;
   nomeColaborador: string;
 }
 
-const titularesForm = ref<Record<1 | 2 | 3, TitularTurnoItem | null>>({
-  1: null,
-  2: null,
-  3: null,
-});
-
-const inputTitularTurno = ref<Record<1 | 2 | 3, string>>({
-  1: '',
-  2: '',
-  3: '',
-});
-
-const loadingTitularTurno = ref<Record<1 | 2 | 3, boolean>>({
-  1: false,
-  2: false,
-  3: false,
-});
-
+const listaPreferenciaForm = ref<PreferenciaColaboradorItem[]>([]);
+const inputNovoTitular = ref('');
+const loadingBuscaTitular = ref(false);
 const erroBuscaTitular = ref('');
 
 const resetarTitularesForm = (titularesExistentes?: any[]) => {
   erroBuscaTitular.value = '';
-  titularesForm.value = { 1: null, 2: null, 3: null };
-  inputTitularTurno.value = { 1: '', 2: '', 3: '' };
-  loadingTitularTurno.value = { 1: false, 2: false, 3: false };
+  inputNovoTitular.value = '';
+  loadingBuscaTitular.value = false;
+  listaPreferenciaForm.value = [];
 
   if (Array.isArray(titularesExistentes)) {
+    const vistos = new Set<number>();
     for (const t of titularesExistentes) {
-      const turnoNum = Number(t.turno) as 1 | 2 | 3;
-      if (turnoNum === 1 || turnoNum === 2 || turnoNum === 3) {
-        titularesForm.value[turnoNum] = {
-          turno: turnoNum,
-          matriculaColaborador: Number(t.matriculaColaborador),
+      const mat = Number(t.matriculaColaborador);
+      if (mat && !vistos.has(mat) && listaPreferenciaForm.value.length < 5) {
+        vistos.add(mat);
+        listaPreferenciaForm.value.push({
+          matriculaColaborador: mat,
           nomeColaborador: t.nomeColaborador,
-        };
+        });
       }
     }
   }
 };
 
-const buscarTitularTurno = async (turno: 1 | 2 | 3) => {
-  const identificador = inputTitularTurno.value[turno].trim();
+const adicionarColaboradorPreferencia = async () => {
+  const identificador = inputNovoTitular.value.trim();
   if (!identificador) return;
 
+  if (listaPreferenciaForm.value.length >= 5) {
+    erroBuscaTitular.value = 'A lista de preferência permite no máximo 5 colaboradores.';
+    return;
+  }
+
   erroBuscaTitular.value = '';
-  loadingTitularTurno.value[turno] = true;
+  loadingBuscaTitular.value = true;
   try {
     const { data } = await api.get(`/colaboradores/consultar-titular/${encodeURIComponent(identificador)}`);
     const colab = data.dados;
-    titularesForm.value[turno] = {
-      turno,
-      matriculaColaborador: Number(colab.matricula),
+    const matricula = Number(colab.matricula);
+
+    if (listaPreferenciaForm.value.some((item) => item.matriculaColaborador === matricula)) {
+      erroBuscaTitular.value = 'Este colaborador já está na lista de preferência deste coletor.';
+      return;
+    }
+
+    listaPreferenciaForm.value.push({
+      matriculaColaborador: matricula,
       nomeColaborador: colab.nome,
-    };
-    inputTitularTurno.value[turno] = '';
+    });
+    inputNovoTitular.value = '';
   } catch (err: any) {
     erroBuscaTitular.value =
-      err.response?.data?.mensagem || `Colaborador não localizado para o ${turno}º turno.`;
+      err.response?.data?.mensagem || 'Colaborador não localizado.';
   } finally {
-    loadingTitularTurno.value[turno] = false;
+    loadingBuscaTitular.value = false;
   }
 };
 
-const removerTitularForm = (turno: 1 | 2 | 3) => {
-  titularesForm.value[turno] = null;
-  inputTitularTurno.value[turno] = '';
+const removerColaboradorPreferencia = (matricula: number) => {
+  listaPreferenciaForm.value = listaPreferenciaForm.value.filter(
+    (item) => item.matriculaColaborador !== matricula
+  );
   erroBuscaTitular.value = '';
 };
 
 const serializarTitularesPayload = () => {
-  return ([1, 2, 3] as const)
-    .map((t) => titularesForm.value[t])
-    .filter((item): item is TitularTurnoItem => Boolean(item));
+  return listaPreferenciaForm.value.map((item) => ({
+    matriculaColaborador: item.matriculaColaborador,
+    nomeColaborador: item.nomeColaborador,
+  }));
 };
 
 const resumirNome = (nomeCompleto?: string) => {
@@ -1102,11 +1088,6 @@ const resumirNome = (nomeCompleto?: string) => {
   const partes = nomeCompleto.trim().split(/\s+/);
   if (partes.length <= 2) return nomeCompleto;
   return `${partes[0]} ${partes[partes.length - 1]}`;
-};
-
-const obterTitularPorTurno = (coletor: any, turno: number) => {
-  if (!coletor?.titulares || !Array.isArray(coletor.titulares)) return null;
-  return coletor.titulares.find((t: any) => Number(t.turno) === turno) || null;
 };
 
 // Modal Cadastro Coletor
