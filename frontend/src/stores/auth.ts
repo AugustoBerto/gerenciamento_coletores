@@ -23,6 +23,14 @@ export const useAuthStore = defineStore('auth', {
     isTI: (state) => state.user?.papel === 'TI',
     isPureTI: (state) => state.user?.papel === 'TI',
     canManageUsers: (state) => state.user?.papel === 'ADMIN' || state.user?.papel === 'TI',
+    canManageSetores: (state) =>
+      state.user?.papel === 'ADMIN' ||
+      state.user?.papel === 'TI' ||
+      state.user?.papel === 'OPERADOR',
+    canAccessConfiguracoes: (state) =>
+      state.user?.papel === 'ADMIN' ||
+      state.user?.papel === 'TI' ||
+      state.user?.papel === 'OPERADOR',
     canManageMaintenance: (state) => state.user?.papel === 'TI',
   },
 

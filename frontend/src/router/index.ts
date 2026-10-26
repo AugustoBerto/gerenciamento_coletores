@@ -52,7 +52,7 @@ const router = createRouter({
           path: 'configuracoes',
           name: 'configuracoes',
           component: ConfiguracoesView,
-          meta: { canManageUsers: true },
+          meta: { canAccessConfiguracoes: true },
         },
       ],
     },
@@ -95,6 +95,11 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   if (to.meta.canManageUsers && !authStore.canManageUsers) {
+    next('/');
+    return;
+  }
+
+  if (to.meta.canAccessConfiguracoes && !authStore.canAccessConfiguracoes) {
     next('/');
     return;
   }

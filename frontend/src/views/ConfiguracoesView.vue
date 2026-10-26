@@ -6,19 +6,19 @@
         <h2 class="text-lg sm:text-xl font-black text-gray-900 tracking-tight flex items-center gap-2">
           Configurações & Gestão de Acessos
         </h2>
-        <p class="text-xs text-gray-500 mt-1">Gerenciamento da whitelist de operadores, setores de localização e parâmetros de SLA</p>
+        <p class="text-xs text-gray-500 mt-1">Gerenciamento da whitelist de monitores, setores de localização e parâmetros de SLA</p>
       </div>
 
       <div class="flex items-center gap-2 w-full sm:w-auto">
         <button
-          v-if="abaAtiva === 'usuarios'"
+          v-if="abaAtiva === 'usuarios' && authStore.canManageUsers"
           @click="abrirModalNovoUsuario"
           class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-[#002B49] hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition"
         >
-          + Cadastrar Novo Operador
+          + Cadastrar Novo Monitor
         </button>
         <button
-          v-else-if="abaAtiva === 'setores' && authStore.canManageUsers"
+          v-else-if="abaAtiva === 'setores' && authStore.canManageSetores"
           @click="abrirModalNovoSetor"
           class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-[#002B49] hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition"
         >
@@ -30,14 +30,15 @@
     <!-- Navegação por Abas -->
     <div class="flex space-x-2 border-b border-gray-200">
       <button
+        v-if="authStore.canManageUsers"
         @click="abaAtiva = 'usuarios'"
         class="pb-3 px-4 text-xs font-bold transition-colors border-b-2"
         :class="abaAtiva === 'usuarios' ? 'border-[#002B49] text-[#002B49]' : 'border-transparent text-gray-500 hover:text-gray-800'"
       >
-        Operadores Autorizados (Whitelist)
+        Monitores Autorizados (Whitelist)
       </button>
       <button
-        v-if="authStore.canManageUsers"
+        v-if="authStore.canManageSetores"
         @click="trocarParaSetores"
         class="pb-3 px-4 text-xs font-bold transition-colors border-b-2"
         :class="abaAtiva === 'setores' ? 'border-[#002B49] text-[#002B49]' : 'border-transparent text-gray-500 hover:text-gray-800'"
@@ -70,14 +71,14 @@
     </div>
 
     <!-- ABA 1: GESTÃO DE USUÁRIOS (WHITELIST) -->
-    <div v-if="abaAtiva === 'usuarios'" class="space-y-4">
+    <div v-if="abaAtiva === 'usuarios' && authStore.canManageUsers" class="space-y-4">
       <!-- Barra de Busca -->
       <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
         <div class="relative">
           <input
             v-model="filtroBusca"
             type="text"
-            placeholder="Buscar operador por nome, usuário ou matrícula..."
+            placeholder="Buscar monitor por nome, usuário ou matrícula..."
             class="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#002B49]"
           />
           <div class="absolute left-3 top-2.5 text-gray-400">
@@ -88,7 +89,7 @@
 
       <!-- Loading State -->
       <div v-if="loadingUsuarios" class="bg-white p-12 rounded-2xl shadow-sm border border-gray-200 text-center text-gray-400 text-xs">
-        Carregando lista de operadores autorizados...
+        Carregando lista de monitores autorizados...
       </div>
 
       <!-- Tabela Desktop -->
@@ -97,7 +98,7 @@
           <table class="w-full text-left text-xs text-gray-600">
             <thead class="bg-gray-100 text-gray-700 uppercase font-black text-[10px] tracking-wider">
               <tr>
-                <th class="py-3 px-4">Operador / Nome</th>
+                <th class="py-3 px-4">Monitor / Nome</th>
                 <th class="py-3 px-4">Usuário</th>
                 <th class="py-3 px-4">Matrícula</th>
                 <th class="py-3 px-4">Cargo / Função</th>
@@ -111,12 +112,13 @@
                 <td class="py-3.5 px-4 font-bold text-gray-900">
                   {{ u.nome }}
                   <span v-if="u.id === authStore.user?.id" class="ml-1 text-[10px] text-blue-600 font-semibold">(Você)</span>
+                  <span v-else-if="isContaSistemaFixa(u)" class="ml-1 text-[10px] text-slate-400 font-medium">(Padrão)</span>
                 </td>
                 <td class="py-3.5 px-4 font-mono text-gray-700">{{ u.usuario }}</td>
                 <td class="py-3.5 px-4 font-mono text-gray-600">{{ u.matricula }}</td>
                 <td class="py-3.5 px-4 text-gray-600">{{ u.cargo || '-' }}</td>
                 <td class="py-3.5 px-4 font-semibold text-slate-700">
-                  {{ u.papel === 'ADMIN' ? 'Administrador' : (u.papel === 'TI' ? 'TI' : 'Operador') }}
+                  {{ u.papel === 'ADMIN' ? 'Administrador' : (u.papel === 'TI' ? 'TI' : 'Monitor') }}
                 </td>
                 <td class="py-3.5 px-4">
                   <div class="inline-flex items-center gap-1.5 font-medium text-slate-700">
@@ -126,15 +128,15 @@
                 </td>
                 <td class="py-3.5 px-4 text-right">
                   <div class="inline-flex items-center gap-2 justify-end">
-                    <template v-if="u.usuario !== 'suporte.ti'">
+                    <template v-if="!isContaSistemaFixa(u)">
                       <!-- Alternar Papel para ADMIN (Exclusivo Administrador Global) -->
                       <button
                         v-if="authStore.isAdmin && u.id !== authStore.user?.id && u.papel !== 'TI'"
                         @click="alternarPapel(u)"
                         class="px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded transition"
-                        :title="u.papel === 'ADMIN' ? 'Rebaixar para Operador' : 'Promover a Administrador'"
+                        :title="u.papel === 'ADMIN' ? 'Rebaixar para Monitor' : 'Promover a Administrador'"
                       >
-                        {{ u.papel === 'ADMIN' ? 'Mudar p/ Operador' : 'Tornar Admin' }}
+                        {{ u.papel === 'ADMIN' ? 'Mudar p/ Monitor' : 'Tornar Admin' }}
                       </button>
 
                       <!-- Alternar Papel para TI (Exclusivo equipe de TI) -->
@@ -142,9 +144,9 @@
                         v-if="authStore.isTI && u.id !== authStore.user?.id && u.papel !== 'ADMIN'"
                         @click="alternarPapelTI(u)"
                         class="px-2 py-1 text-xs font-bold text-gray-700 hover:bg-gray-100 rounded transition"
-                        :title="u.papel === 'TI' ? 'Rebaixar para Operador' : 'Promover a TI'"
+                        :title="u.papel === 'TI' ? 'Rebaixar para Monitor' : 'Promover a TI'"
                       >
-                        {{ u.papel === 'TI' ? 'Mudar p/ Operador' : 'Tornar TI' }}
+                        {{ u.papel === 'TI' ? 'Mudar p/ Monitor' : 'Tornar TI' }}
                       </button>
 
                       <!-- Alternar Status Ativo/Inativo -->
@@ -152,9 +154,19 @@
                         v-if="podeModificarUsuario(u)"
                         @click="alternarStatus(u)"
                         class="px-2.5 py-1 text-xs font-bold rounded transition"
-                        :class="u.ativo ? 'text-red-600 hover:bg-red-50' : 'text-emerald-700 hover:bg-emerald-50'"
+                        :class="u.ativo ? 'text-amber-700 hover:bg-amber-50' : 'text-emerald-700 hover:bg-emerald-50'"
                       >
                         {{ u.ativo ? 'Inativar' : 'Reativar' }}
+                      </button>
+
+                      <!-- Excluir Monitor Definitivamente -->
+                      <button
+                        v-if="podeModificarUsuario(u)"
+                        @click="excluirUsuario(u)"
+                        class="px-2.5 py-1 text-xs font-bold text-rose-600 hover:bg-rose-50 rounded transition"
+                        title="Excluir monitor permanentemente"
+                      >
+                        Excluir
                       </button>
                     </template>
                   </div>
@@ -177,51 +189,59 @@
               <div class="font-bold text-gray-900 text-sm">
                 {{ u.nome }}
                 <span v-if="u.id === authStore.user?.id" class="text-[10px] text-blue-600 font-semibold">(Você)</span>
+                <span v-else-if="isContaSistemaFixa(u)" class="text-[10px] text-slate-400 font-medium">(Padrão)</span>
               </div>
               <div class="text-xs text-gray-500 font-mono">@{{ u.usuario }} &bull; Mat: {{ u.matricula }}</div>
             </div>
             <span class="text-xs font-semibold text-slate-700">
-              {{ u.papel === 'ADMIN' ? 'Administrador' : (u.papel === 'TI' ? 'TI' : 'Operador') }}
+              {{ u.papel === 'ADMIN' ? 'Administrador' : (u.papel === 'TI' ? 'TI' : 'Monitor') }}
             </span>
           </div>
 
           <div class="text-xs text-gray-600 flex justify-between items-center">
-            <span>{{ u.cargo || 'Operador' }}</span>
+            <span>{{ u.cargo || 'Monitor' }}</span>
             <div class="inline-flex items-center gap-1.5 font-medium text-slate-700 text-xs">
               <span class="w-2 h-2 rounded-full" :class="u.ativo ? 'bg-emerald-500' : 'bg-slate-300'"></span>
               <span>{{ u.ativo ? 'Ativo' : 'Inativo' }}</span>
             </div>
           </div>
 
-          <div v-if="u.id !== authStore.user?.id && u.usuario !== 'suporte.ti' && (authStore.isAdmin || authStore.isTI)" class="pt-2 border-t border-gray-100 flex justify-end gap-2 items-center">
+          <div v-if="u.id !== authStore.user?.id && !isContaSistemaFixa(u) && (authStore.isAdmin || authStore.isTI)" class="pt-2 border-t border-gray-100 flex justify-end gap-2 items-center flex-wrap">
             <button
               v-if="authStore.isAdmin && u.papel !== 'TI'"
               @click="alternarPapel(u)"
               class="px-2.5 py-1 text-xs font-bold border rounded-lg text-gray-700 bg-gray-50"
             >
-              {{ u.papel === 'ADMIN' ? 'P/ Operador' : 'P/ Admin' }}
+              {{ u.papel === 'ADMIN' ? 'P/ Monitor' : 'P/ Admin' }}
             </button>
             <button
               v-if="authStore.isTI && u.papel !== 'ADMIN'"
               @click="alternarPapelTI(u)"
               class="px-2.5 py-1 text-xs font-bold border rounded-lg text-gray-700 bg-gray-50"
             >
-              {{ u.papel === 'TI' ? 'P/ Operador' : 'P/ TI' }}
+              {{ u.papel === 'TI' ? 'P/ Monitor' : 'P/ TI' }}
             </button>
             <button
               v-if="podeModificarUsuario(u)"
               @click="alternarStatus(u)"
               class="px-3 py-1 text-xs font-bold rounded-lg"
-              :class="u.ativo ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
+              :class="u.ativo ? 'bg-amber-50 text-amber-800 border border-amber-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'"
             >
               {{ u.ativo ? 'Inativar' : 'Reativar' }}
+            </button>
+            <button
+              v-if="podeModificarUsuario(u)"
+              @click="excluirUsuario(u)"
+              class="px-3 py-1 text-xs font-bold rounded-lg bg-rose-50 text-rose-700 border border-rose-200"
+            >
+              Excluir
             </button>
           </div>
         </div>
       </div>
 
       <div v-else class="bg-white p-12 rounded-2xl shadow-sm border border-gray-200 text-center text-gray-500 text-xs">
-        Nenhum operador encontrado com os termos de busca informados.
+        Nenhum monitor encontrado com os termos de busca informados.
       </div>
     </div>
 
@@ -417,7 +437,7 @@
       </form>
     </div>
 
-    <!-- MODAL: CADASTRAR NOVO OPERADOR -->
+    <!-- MODAL: CADASTRAR NOVO MONITOR -->
     <Teleport to="body">
       <div
         v-if="modalNovoUsuarioAberto"
@@ -426,7 +446,7 @@
         <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto my-auto">
           <div class="flex justify-between items-start border-b pb-3">
             <div>
-              <h3 class="text-base font-extrabold text-gray-900">Cadastrar Operador</h3>
+              <h3 class="text-base font-extrabold text-gray-900">Cadastrar Monitor</h3>
               <p class="text-xs text-gray-500">Autoriza o usuário corporativo DASS a fazer login no sistema</p>
             </div>
             <button @click="modalNovoUsuarioAberto = false" class="text-gray-400 hover:text-gray-700 text-lg leading-none">
@@ -487,7 +507,7 @@
                 v-model="novoUsuarioPapel"
                 class="w-full p-2.5 text-xs rounded-xl border border-gray-300 outline-none focus:ring-2 focus:ring-[#002B49] bg-white font-bold text-gray-800"
               >
-                <option value="OPERADOR">OPERADOR (Check-out, Check-in, Solicitar Manutenção)</option>
+                <option value="OPERADOR">MONITOR (Check-out, Check-in, Solicitar Manutenção)</option>
                 <option v-if="authStore.isTI" value="TI">TI (Gestão Técnica de Manutenção e TI)</option>
                 <option v-if="authStore.isAdmin" value="ADMIN">ADMIN (Controle total de Usuários e Parâmetros)</option>
               </select>
@@ -598,7 +618,9 @@ import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
 
-const abaAtiva = ref<'usuarios' | 'setores' | 'sla'>('usuarios');
+const abaAtiva = ref<'usuarios' | 'setores' | 'sla'>(
+  authStore.canManageUsers ? 'usuarios' : 'setores'
+);
 const usuarios = ref<any[]>([]);
 const loadingUsuarios = ref(false);
 const filtroBusca = ref('');
@@ -616,11 +638,20 @@ const exibirAlerta = (msg: string, tipo: 'sucesso' | 'erro' = 'sucesso') => {
   }, 6000);
 };
 
+const isContaSistemaFixa = (u: any) => {
+  const usuariosFixos = ['suporte.ti', 'monitor.geral'];
+  const matriculasFixas = [9999001, 9999002];
+  return (
+    usuariosFixos.includes(String(u?.usuario || '').toLowerCase()) ||
+    matriculasFixas.includes(Number(u?.matricula))
+  );
+};
+
 const podeModificarUsuario = (u: any) => {
   if (u.id === authStore.user?.id) return false;
-  if (u.usuario === 'suporte.ti') return false;
+  if (isContaSistemaFixa(u)) return false;
   if (authStore.isTI) {
-    return u.papel !== 'ADMIN';
+    return u.papel !== 'ADMIN' && u.papel !== 'TI';
   }
   if (authStore.isAdmin) {
     return u.papel !== 'TI';
@@ -771,7 +802,7 @@ const carregarUsuarios = async () => {
     const { data } = await api.get('/configuracoes/usuarios');
     usuarios.value = data.dados || [];
   } catch (err: any) {
-    exibirAlerta(err.response?.data?.mensagem || 'Erro ao listar operadores autorizados.', 'erro');
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao listar monitores autorizados.', 'erro');
   } finally {
     loadingUsuarios.value = false;
   }
@@ -845,18 +876,18 @@ const confirmarCadastroUsuario = async () => {
       papel: novoUsuarioPapel.value,
     });
     modalNovoUsuarioAberto.value = false;
-    exibirAlerta(`Operador ${usuarioCorporativoLocalizado.value.usuario} cadastrado com sucesso!`, 'sucesso');
+    exibirAlerta(`Monitor ${usuarioCorporativoLocalizado.value.usuario} cadastrado com sucesso!`, 'sucesso');
     await carregarUsuarios();
   } catch (err: any) {
-    erroModal.value = err.response?.data?.mensagem || 'Erro ao cadastrar operador.';
+    erroModal.value = err.response?.data?.mensagem || 'Erro ao cadastrar monitor.';
   } finally {
     loadingSalvarUsuario.value = false;
   }
 };
 
 const alternarPapel = async (u: any) => {
-  if (u.usuario === 'suporte.ti') {
-    exibirAlerta('O papel do perfil padrão suporte.ti é fixo como TI e não pode ser alterado.', 'erro');
+  if (isContaSistemaFixa(u)) {
+    exibirAlerta('O papel dos perfis padrão do sistema é fixo e não pode ser alterado.', 'erro');
     return;
   }
   if (u.papel === 'TI') {
@@ -864,22 +895,22 @@ const alternarPapel = async (u: any) => {
     return;
   }
   const novoPapel = u.papel === 'ADMIN' ? 'OPERADOR' : 'ADMIN';
-  const label = novoPapel === 'ADMIN' ? 'promover a Administrador' : 'rebaixar para Operador';
+  const label = novoPapel === 'ADMIN' ? 'promover a Administrador' : 'rebaixar para Monitor';
 
   if (!confirm(`Deseja realmente ${label} o usuário ${u.nome}?`)) return;
 
   try {
     await api.patch(`/configuracoes/usuarios/${u.id}`, { papel: novoPapel });
-    exibirAlerta(`Papel de ${u.nome} atualizado para ${novoPapel}.`, 'sucesso');
+    exibirAlerta(`Papel de ${u.nome} atualizado com sucesso.`, 'sucesso');
     await carregarUsuarios();
   } catch (err: any) {
-    exibirAlerta(err.response?.data?.mensagem || 'Erro ao alterar papel do operador.', 'erro');
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao alterar papel do monitor.', 'erro');
   }
 };
 
 const alternarPapelTI = async (u: any) => {
-  if (u.usuario === 'suporte.ti') {
-    exibirAlerta('O papel do perfil padrão suporte.ti é fixo como TI e não pode ser alterado.', 'erro');
+  if (isContaSistemaFixa(u)) {
+    exibirAlerta('O papel dos perfis padrão do sistema é fixo e não pode ser alterado.', 'erro');
     return;
   }
   if (u.papel === 'ADMIN') {
@@ -887,41 +918,65 @@ const alternarPapelTI = async (u: any) => {
     return;
   }
   const novoPapel = u.papel === 'TI' ? 'OPERADOR' : 'TI';
-  const label = novoPapel === 'TI' ? 'promover a Técnico de TI' : 'rebaixar para Operador';
+  const label = novoPapel === 'TI' ? 'promover a Técnico de TI' : 'rebaixar para Monitor';
 
   if (!confirm(`Deseja realmente ${label} o usuário ${u.nome}?`)) return;
 
   try {
     await api.patch(`/configuracoes/usuarios/${u.id}`, { papel: novoPapel });
-    exibirAlerta(`Papel de ${u.nome} atualizado para ${novoPapel}.`, 'sucesso');
+    exibirAlerta(`Papel de ${u.nome} atualizado com sucesso.`, 'sucesso');
     await carregarUsuarios();
   } catch (err: any) {
-    exibirAlerta(err.response?.data?.mensagem || 'Erro ao alterar papel do operador.', 'erro');
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao alterar papel do monitor.', 'erro');
   }
 };
 
 const alternarStatus = async (u: any) => {
-  if (u.usuario === 'suporte.ti') {
-    exibirAlerta('O perfil padrão suporte.ti não pode ser inativado.', 'erro');
+  if (isContaSistemaFixa(u)) {
+    exibirAlerta('Os perfis padrão do sistema não podem ser inativados.', 'erro');
     return;
   }
   const novoStatus = !u.ativo;
   const label = novoStatus ? 'reativar' : 'inativar';
 
-  if (!confirm(`Deseja realmente ${label} o acesso do operador ${u.nome}?`)) return;
+  if (!confirm(`Deseja realmente ${label} o acesso do monitor ${u.nome}?`)) return;
 
   try {
     await api.patch(`/configuracoes/usuarios/${u.id}`, { ativo: novoStatus });
-    exibirAlerta(`Operador ${u.nome} ${novoStatus ? 'reativado' : 'inativado'} com sucesso.`, 'sucesso');
+    exibirAlerta(`Monitor ${u.nome} ${novoStatus ? 'reativado' : 'inativado'} com sucesso.`, 'sucesso');
     await carregarUsuarios();
   } catch (err: any) {
-    exibirAlerta(err.response?.data?.mensagem || 'Erro ao atualizar status do operador.', 'erro');
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao atualizar status do monitor.', 'erro');
+  }
+};
+
+const excluirUsuario = async (u: any) => {
+  if (isContaSistemaFixa(u)) {
+    exibirAlerta('Os perfis padrão do sistema (Monitor Geral e Suporte TI) não podem ser excluídos.', 'erro');
+    return;
+  }
+  if (
+    !confirm(
+      `ATENÇÃO: Deseja excluir permanentemente o monitor "${u.nome}" (@${u.usuario})?\n\nEsta ação removerá o cadastro do usuário no sistema.`
+    )
+  ) {
+    return;
+  }
+
+  try {
+    const { data } = await api.delete(`/configuracoes/usuarios/${u.id}`);
+    exibirAlerta(data.mensagem || `Monitor ${u.nome} excluído com sucesso!`, 'sucesso');
+    await carregarUsuarios();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao excluir monitor.', 'erro');
   }
 };
 
 onMounted(() => {
-  carregarUsuarios();
   if (authStore.canManageUsers) {
+    carregarUsuarios();
+  }
+  if (authStore.canManageSetores) {
     carregarSetores();
   }
   if (authStore.isAdmin) {

@@ -10,7 +10,6 @@
       </div>
       <div class="flex items-center gap-2 w-full sm:w-auto">
         <button
-          v-if="authStore.canManageUsers"
           @click="abrirModalNovoColetor"
           class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-[#002B49] hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition"
         >
@@ -255,7 +254,7 @@
           </div>
 
           <!-- Ações Operacionais -->
-          <div class="space-y-2 pt-2 border-t border-slate-100">
+          <div v-if="temAcoesDisponiveis(coletorDetalhes)" class="space-y-2 pt-2 border-t border-slate-100">
             <div class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Ações Disponíveis</div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -304,7 +303,6 @@
 
               <!-- Editar Coletor -->
               <button
-                v-if="authStore.canManageUsers"
                 @click="executarAcaoModal(() => abrirModalEditarColetor(coletorDetalhes))"
                 class="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
               >
@@ -324,9 +322,18 @@
               <button
                 v-if="authStore.canManageUsers && coletorDetalhes.status !== 'EM_USO' && coletorDetalhes.status !== 'INATIVO'"
                 @click="executarAcaoModal(() => inativarColetor(coletorDetalhes))"
-                class="p-2.5 text-rose-700 hover:bg-rose-50 border border-rose-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
+                class="p-2.5 text-amber-800 hover:bg-amber-50 border border-amber-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
               >
                 <span>Inativar Coletor</span>
+              </button>
+
+              <!-- Excluir Coletor Permanentemente -->
+              <button
+                v-if="authStore.canManageUsers && coletorDetalhes.status !== 'EM_USO'"
+                @click="executarAcaoModal(() => excluirColetor(coletorDetalhes))"
+                class="p-2.5 text-rose-700 hover:bg-rose-50 border border-rose-200 font-bold rounded-xl text-xs flex items-center justify-center gap-1.5 transition"
+              >
+                <span>Excluir Coletor</span>
               </button>
             </div>
           </div>
@@ -941,6 +948,10 @@ const abrirModalDetalhes = (c: any) => {
   modalDetalhesAberto.value = true;
 };
 
+const temAcoesDisponiveis = (c: any): boolean => {
+  return Boolean(c);
+};
+
 const executarAcaoModal = (acao: () => void) => {
   modalDetalhesAberto.value = false;
   acao();
@@ -1178,11 +1189,28 @@ const confirmarConclusaoManutencao = async () => {
 const inativarColetor = async (coletor: any) => {
   if (!confirm(`Deseja realmente inativar o coletor patrimônio ${coletor.patrimonio}?`)) return;
   try {
-    await api.delete(`/coletores/${coletor.id}`);
+    await api.post(`/coletores/${coletor.id}/inativar`);
     exibirAlerta(`Coletor ${coletor.patrimonio} inativado.`, 'sucesso');
     await carregarColetores();
   } catch (err: any) {
     exibirAlerta(err.response?.data?.mensagem || 'Erro ao inativar coletor.', 'erro');
+  }
+};
+
+const excluirColetor = async (coletor: any) => {
+  if (
+    !confirm(
+      `ATENÇÃO: Deseja excluir PERMANENTEMENTE o coletor patrimônio ${coletor.patrimonio} (${coletor.marca} ${coletor.modelo})?\n\nEsta ação removerá o equipamento e seu histórico definitivamente do sistema.`
+    )
+  ) {
+    return;
+  }
+  try {
+    const { data } = await api.delete(`/coletores/${coletor.id}`);
+    exibirAlerta(data.mensagem || `Coletor ${coletor.patrimonio} excluído permanentemente!`, 'sucesso');
+    await carregarColetores();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao excluir coletor.', 'erro');
   }
 };
 

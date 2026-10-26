@@ -74,8 +74,17 @@ export const useMovimentacoesStore = defineStore('movimentacoes', {
       return data.dados;
     },
 
-    async realizarRetirada(matricula: number, patrimonio: string) {
-      const { data } = await api.post('/movimentacoes/retirada', { matricula, patrimonio });
+    async validarOperador(codigo: string) {
+      const { data } = await api.post('/colaboradores/validar-operador', { codigo });
+      return data.dados;
+    },
+
+    async realizarRetirada(matricula: number, patrimonio: string, crachaOperador?: string | null) {
+      const { data } = await api.post('/movimentacoes/retirada', {
+        matricula,
+        patrimonio,
+        crachaOperador,
+      });
       await this.carregarAtivas();
       await this.carregarMetricas();
       return data;
@@ -93,7 +102,13 @@ export const useMovimentacoesStore = defineStore('movimentacoes', {
 
     async realizarDevolucao(
       id: string,
-      dados: { avaria: boolean; motivoManutencao?: string | null; numeroOs?: string | null; observacao?: string | null }
+      dados: {
+        avaria: boolean;
+        motivoManutencao?: string | null;
+        numeroOs?: string | null;
+        observacao?: string | null;
+        crachaOperador?: string | null;
+      }
     ) {
       const { data } = await api.post(`/movimentacoes/${id}/devolucao`, dados);
       await this.carregarAtivas();

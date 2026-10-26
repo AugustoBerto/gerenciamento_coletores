@@ -65,7 +65,7 @@
             </RouterLink>
 
             <RouterLink
-              v-if="authStore.canManageUsers"
+              v-if="authStore.canAccessConfiguracoes"
               to="/configuracoes"
               class="px-2 lg:px-3 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1.5 whitespace-nowrap"
               :class="isActive('/configuracoes') ? 'bg-white/15 text-white shadow-inner' : 'text-slate-200 hover:text-white hover:bg-white/10'"
@@ -79,10 +79,10 @@
           <div class="flex items-center space-x-2 sm:space-x-3 shrink-0">
             <div class="hidden lg:block text-right">
               <div class="text-xs font-bold text-white truncate max-w-[130px] xl:max-w-[190px]">
-                {{ authStore.user?.nome || 'Operador' }}
+                {{ authStore.user?.nome || 'Monitor' }}
               </div>
               <div class="text-[10px] text-[#C5A059] font-semibold whitespace-nowrap">
-                {{ authStore.user?.papel }} &bull; Mat: {{ authStore.user?.matricula }}
+                {{ formatarPapel(authStore.user?.papel) }} &bull; Mat: {{ authStore.user?.matricula }}
               </div>
             </div>
 
@@ -149,7 +149,7 @@
             Relatórios
           </RouterLink>
           <RouterLink
-            v-if="authStore.canManageUsers"
+            v-if="authStore.canAccessConfiguracoes"
             to="/configuracoes"
             @click="menuAberto = false"
             class="block px-3 py-2.5 rounded-lg text-sm font-bold transition"
@@ -162,7 +162,7 @@
           <div class="pt-3 border-t border-white/10 flex justify-between items-center px-3">
             <div>
               <div class="text-xs font-bold text-white">{{ authStore.user?.nome }}</div>
-              <div class="text-[10px] text-[#C5A059]">Mat: {{ authStore.user?.matricula }} &bull; {{ authStore.user?.papel }}</div>
+              <div class="text-[10px] text-[#C5A059]">Mat: {{ authStore.user?.matricula }} &bull; {{ formatarPapel(authStore.user?.papel) }}</div>
             </div>
             <button
               @click="handleLogout"
@@ -198,6 +198,13 @@ const authStore = useAuthStore();
 const menuAberto = ref(false);
 
 const isActive = (path: string) => route.path === path;
+
+const formatarPapel = (papel?: string) => {
+  if (papel === 'ADMIN') return 'ADMIN';
+  if (papel === 'TI') return 'TI';
+  if (papel === 'OPERADOR') return 'MONITOR';
+  return papel || 'MONITOR';
+};
 
 const handleLogout = async () => {
   await authStore.logout();
