@@ -72,12 +72,14 @@ export class MovimentacoesService {
     // 1. Identifica o monitor liberador responsável (sem criar usuário na whitelist)
     let operadorSaidaId = operadorId;
     let matriculaOperadorLiberador: number | null = null;
+    let nomeMonitorSaida: string | null = null;
     if (crachaOperador) {
       const opLiberador = await ColaboradoresService.validarMonitorPorCracha(crachaOperador);
       if (opLiberador.id) {
         operadorSaidaId = opLiberador.id;
       }
       matriculaOperadorLiberador = opLiberador.matricula;
+      nomeMonitorSaida = opLiberador.nome;
     }
 
     // 2. Valida elegibilidade do colaborador e trava de custódia diretamente pela matrícula
@@ -154,6 +156,8 @@ export class MovimentacoesService {
         nomeColaborador: colaborador.nome,
         setorColaborador: colaborador.setor,
         operadorSaidaId,
+        matriculaMonitorSaida: matriculaOperadorLiberador,
+        nomeMonitorSaida,
         tipoPreferencia,
         detalhePreferencia,
         dataSaida: new Date(),
@@ -229,7 +233,7 @@ export class MovimentacoesService {
         funcao: colab.funcao,
       },
       operadorSaida: {
-        nome: mov.operadorSaida.nome,
+        nome: mov.nomeMonitorSaida || mov.operadorSaida.nome,
       },
       tipoPreferencia: mov.tipoPreferencia,
       detalhePreferencia: mov.detalhePreferencia,
@@ -288,7 +292,7 @@ export class MovimentacoesService {
         setor: mov.setorColaborador,
       },
       operadorSaida: {
-        nome: mov.operadorSaida.nome,
+        nome: mov.nomeMonitorSaida || mov.operadorSaida.nome,
       },
       tipoPreferencia: mov.tipoPreferencia,
       detalhePreferencia: mov.detalhePreferencia,
@@ -326,11 +330,15 @@ export class MovimentacoesService {
 
       // 1. Identifica o monitor de retorno responsável (sem criar usuário na whitelist)
       let operadorRetornoId = dto.operadorId;
+      let matriculaMonitorRetorno: number | null = null;
+      let nomeMonitorRetorno: string | null = null;
       if (dto.crachaOperador) {
         const opRecebedor = await ColaboradoresService.validarMonitorPorCracha(dto.crachaOperador);
         if (opRecebedor.id) {
           operadorRetornoId = opRecebedor.id;
         }
+        matriculaMonitorRetorno = opRecebedor.matricula;
+        nomeMonitorRetorno = opRecebedor.nome;
 
         if (opRecebedor.matricula === mov.matriculaColaborador) {
           throw new AppError(
@@ -346,6 +354,8 @@ export class MovimentacoesService {
 
       mov.dataRetorno = dataRetorno;
       mov.operadorRetornoId = operadorRetornoId;
+      mov.matriculaMonitorRetorno = matriculaMonitorRetorno;
+      mov.nomeMonitorRetorno = nomeMonitorRetorno;
       mov.minutosUso = minutosUso;
       mov.observacaoDevolucao = dto.observacao || (dto.avaria ? dto.motivoManutencao || 'Avaria relatada' : null);
       await queryRunner.manager.save(mov);
@@ -442,7 +452,7 @@ export class MovimentacoesService {
         },
         operadorSaida: {
           id: m.operadorSaida.id,
-          nome: m.operadorSaida.nome,
+          nome: m.nomeMonitorSaida || m.operadorSaida.nome,
         },
         tipoPreferencia: m.tipoPreferencia,
         detalhePreferencia: m.detalhePreferencia,

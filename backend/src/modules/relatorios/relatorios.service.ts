@@ -97,7 +97,24 @@ export class RelatoriosService {
 
     query.orderBy('m.dataSaida', 'DESC').skip(skip).take(limit);
 
-    const [movimentacoes, total] = await query.getManyAndCount();
+    const [movimentacoesRaw, total] = await query.getManyAndCount();
+
+    const movimentacoes = movimentacoesRaw.map((m) => ({
+      ...m,
+      operadorSaida: m.operadorSaida
+        ? {
+            ...m.operadorSaida,
+            nome: m.nomeMonitorSaida || m.operadorSaida.nome,
+          }
+        : null,
+      operadorRetorno:
+        m.operadorRetorno || m.nomeMonitorRetorno
+          ? {
+              ...(m.operadorRetorno || {}),
+              nome: m.nomeMonitorRetorno || m.operadorRetorno?.nome || '-',
+            }
+          : null,
+    }));
 
     return {
       movimentacoes,

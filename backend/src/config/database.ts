@@ -62,7 +62,11 @@ export const connectDatabase = async (): Promise<DataSource> => {
         ON gestao_coletores.coletor_titulares (coletor_id);
       ALTER TABLE gestao_coletores.movimentacoes
         ADD COLUMN IF NOT EXISTS tipo_preferencia VARCHAR(25) NOT NULL DEFAULT 'LIVRE',
-        ADD COLUMN IF NOT EXISTS detalhe_preferencia VARCHAR(255);
+        ADD COLUMN IF NOT EXISTS detalhe_preferencia VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS matricula_monitor_saida BIGINT,
+        ADD COLUMN IF NOT EXISTS nome_monitor_saida VARCHAR(120),
+        ADD COLUMN IF NOT EXISTS matricula_monitor_retorno BIGINT,
+        ADD COLUMN IF NOT EXISTS nome_monitor_retorno VARCHAR(120);
     `);
     console.log('[Database] Conectado com sucesso ao PostgreSQL via DATABASE_URL (schema: gestao_coletores).');
   }

@@ -51,6 +51,34 @@ export class Movimentacao {
   @JoinColumn({ name: 'operador_retorno_id' })
   operadorRetorno!: Operador | null;
 
+  @Column({
+    name: 'matricula_monitor_saida',
+    type: 'bigint',
+    nullable: true,
+    transformer: {
+      to: (value: number | null) => value,
+      from: (value: string | number | null) => (value !== null && value !== undefined ? Number(value) : null),
+    },
+  })
+  matriculaMonitorSaida!: number | null;
+
+  @Column({ name: 'nome_monitor_saida', type: 'varchar', length: 120, nullable: true })
+  nomeMonitorSaida!: string | null;
+
+  @Column({
+    name: 'matricula_monitor_retorno',
+    type: 'bigint',
+    nullable: true,
+    transformer: {
+      to: (value: number | null) => value,
+      from: (value: string | number | null) => (value !== null && value !== undefined ? Number(value) : null),
+    },
+  })
+  matriculaMonitorRetorno!: number | null;
+
+  @Column({ name: 'nome_monitor_retorno', type: 'varchar', length: 120, nullable: true })
+  nomeMonitorRetorno!: string | null;
+
   @Column({ name: 'data_saida', type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
   dataSaida!: Date;
 
