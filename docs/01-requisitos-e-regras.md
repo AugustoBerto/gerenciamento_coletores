@@ -13,7 +13,7 @@ A aplicação opera através do **Dass API Gateway** (porta `2399`), autentica o
 | Ator | Descrição | Permissões / Autenticação |
 | :--- | :--- | :--- |
 | **Operador / Almoxarife (`OPERADOR`)** | Usuário responsável pelas entregas e recebimentos físicos de turno. | Autentica-se com credenciais corporativas DASS (usuário/senha); executa check-out e check-in; solicita manutenção de aparelhos avariados com OS; consulta inventário e dashboard em tempo real. |
-| **Técnico de Suporte TI (`TI`)** | Equipe de suporte/infraestrutura responsável pela bancada técnica e triagem de equipamentos. | Autentica-se localmente (`suporte.ti` / `gdti5s11se`) ou via SSO com papel `TI`; atua como administrador técnico; detém **exclusividade absoluta sobre a manutenção** (único que executa entrada técnica e baixa com laudo); pode cadastrar e gerenciar operadores comuns (`OPERADOR`). |
+| **Técnico de Suporte TI (`TI`)** | Equipe de suporte/infraestrutura responsável pela bancada técnica e triagem de equipamentos. | Autentica-se localmente (`suporte.ti`) ou via SSO com papel `TI`; atua como administrador técnico; detém **exclusividade absoluta sobre a manutenção** (único que executa entrada técnica e baixa com laudo); pode cadastrar e gerenciar monitores (`OPERADOR`). |
 | **Administrador Geral (`ADMIN`)** | Gestor responsável pelo controle global de inventário e parâmetros do sistema. | Acesso administrativo amplo; gerencia operadores, catálogo de coletores, parâmetros de SLA; executa check-in e check-out manuais; **solicita manutenção de aparelhos com OS (idêntico ao operador), mas não dá entrada técnica nem conclui reparo**, delegando a governança técnica à TI. |
 | **Colaborador Operacional** | Funcionário que retira o coletor para o turno de trabalho. | Não acessa o software diretamente; é identificado pelo código de barras físico do seu crachá (14 dígitos corporativos, matrícula de 7 dígitos ou RFID) cadastrado no schema `colaborador`. |
 
@@ -124,7 +124,7 @@ A aplicação opera através do **Dass API Gateway** (porta `2399`), autentica o
 * O sistema bloqueia a inativação ou rebaixamento caso reste apenas um único administrador ativo no sistema.
 
 ### RN11 - Perfil Técnico Local (`suporte.ti`) e Imutabilidade
-* O sistema inicializa no bootstrap a conta padrão `suporte.ti` com senha `gdti5s11se` e papel `TI`.
+* O sistema inicializa no bootstrap a conta padrão `suporte.ti` com autenticação local (hash bcrypt) e papel `TI`.
 * As credenciais deste perfil residem estritamente no schema `gestao_coletores.operadores` com hash bcrypt, não interagindo com a tabela externa `autenticacao.usuarios`.
 * **Imutabilidade do Perfil:** O papel do `suporte.ti` é fixo como `TI`. O sistema impede estritamente que qualquer usuário (inclusive o Administrador Geral) altere seu papel para `ADMIN` ou `OPERADOR`, ou execute sua inativação (`ativo = false`).
 

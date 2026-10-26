@@ -47,7 +47,7 @@ O módulo suporta autenticação híbrida:
   ```json
   {
     "usuario": "suporte.ti",
-    "senha": "gdti5s11se"
+    "senha": "********"
   }
   ```
 - **Response 200 OK:**

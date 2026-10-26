@@ -156,7 +156,7 @@ try {
 
 ### 3.4 Autenticação Híbrida e Isolamento de Schema
 - Usuários corporativos são validados no SSO corporativo e autorizados pela whitelist local `gestao_coletores.operadores`.
-- O perfil de infraestrutura `suporte.ti` (senha `gdti5s11se`) possui autenticação local via bcrypt no próprio schema da aplicação, garantindo funcionamento autônomo sem alterar schemas externos.
+- O perfil de infraestrutura `suporte.ti` possui autenticação local via bcrypt no próprio schema da aplicação, garantindo funcionamento autônomo sem alterar schemas externos.
 
 ---
 

@@ -25,7 +25,7 @@ Substituir controles manuais (planilhas e cadernos físicos) por uma solução w
 - **Colaboradores:** Identificados por meio da leitura do código de barras presente no crachá funcional (14 dígitos corporativos, matrícula de 7 dígitos ou RFID).
 - **Operadores do Sistema:** 
   - **Operador (`OPERADOR`):** Usuário autenticado na whitelist corporativa; realiza retiradas e devoluções; solicita manutenção de aparelhos com defeito e OS.
-  - **Técnico de Suporte TI (`TI`):** Perfil técnico fixo de infraestrutura (`suporte.ti` / `gdti5s11se`), detém **exclusividade total** sobre a bancada técnica de manutenção e pode cadastrar operadores comuns.
+  - **Técnico de Suporte TI (`TI`):** Perfil técnico fixo de infraestrutura (`suporte.ti`), detém **exclusividade total** sobre a bancada técnica de manutenção e pode cadastrar monitores comuns.
   - **Administrador Geral (`ADMIN`):** Gestão global de usuários, inventário, parâmetros de SLA e execuções de checkout/checkin manual; solicita manutenção de aparelhos avariados (sem acesso a entrada técnica ou conclusão de reparo).
 
 ### 2.2 Regras de Negócio Fundamentais
