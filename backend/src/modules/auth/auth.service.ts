@@ -280,10 +280,22 @@ export class AuthService {
       operador = await operadorRepo.save(operador);
     }
 
+    const sessionToken = jwt.sign(
+      {
+        id: operador.id,
+        matricula: operador.matricula,
+        usuario: operador.usuario,
+        nome: operador.nome,
+        papel: operador.papel,
+      },
+      jwtSecret,
+      { expiresIn: '12h' }
+    );
+
     const cookies = authResponse.headers['set-cookie'] || [];
 
     return {
-      token,
+      token: sessionToken,
       operador: {
         id: operador.id,
         matricula: operador.matricula,
@@ -304,12 +316,13 @@ export class AuthService {
         const decoded = jwt.verify(tokenFromHeader, jwtSecret, { ignoreExpiration: true }) as any;
         const operadorRepo = AppDataSource.getRepository(Operador);
         const matricula = Number(decoded.matricula);
-        const usuario = String(decoded.usuario || '').toLowerCase();
+        const usuario = String(decoded.usuario || decoded.username || '').toLowerCase();
         const operadorLocal = await operadorRepo.findOne({
-          where: matricula ? { matricula } : { usuario },
+          where: matricula ? [{ matricula }, ...(usuario ? [{ usuario }] : [])] : { usuario },
         });
 
-        if (operadorLocal && operadorLocal.senhaHash && operadorLocal.ativo) {
+        if (operadorLocal && operadorLocal.ativo) {
+          const isOperadorTerminal = operadorLocal.usuario === 'monitor.geral';
           const newToken = jwt.sign(
             {
               id: operadorLocal.id,
@@ -319,25 +332,37 @@ export class AuthService {
               papel: operadorLocal.papel,
             },
             jwtSecret,
-            { expiresIn: '8h' }
+            { expiresIn: isOperadorTerminal ? '30d' : '12h' }
           );
           return { token: newToken, cookies: [] };
         }
       } catch {
-        // Prossegue para refresh do SSO corporativo se não for usuário local válido
+        // Prossegue para refresh do SSO corporativo se o token não puder ser verificado
       }
     }
 
     const authUrl = this.getDassAuthUrl();
     try {
-      const response = await axios.post(
-        `${authUrl}/auth/me`,
-        {},
-        {
-          headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
-          timeout: 5000,
-        }
-      );
+      let response: any;
+      try {
+        response = await axios.post(
+          `${authUrl}/auth/token/refresh`,
+          {},
+          {
+            headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
+            timeout: 5000,
+          }
+        );
+      } catch {
+        response = await axios.post(
+          `${authUrl}/auth/me`,
+          {},
+          {
+            headers: cookieHeader ? { Cookie: cookieHeader } : undefined,
+            timeout: 5000,
+          }
+        );
+      }
 
       const token = response.data?.data?.token || response.data?.token;
       if (!token) {
