@@ -36,15 +36,26 @@ const processQueue = (error: any, token: string | null = null) => {
   failedQueue = [];
 };
 
+const getLoginPath = (): string => {
+  const baseUrl = import.meta.env.BASE_URL || '/';
+  return `${baseUrl.endsWith('/') ? baseUrl : `${baseUrl}/`}login`;
+};
+
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config as CustomRequestConfig;
+    const originalRequest = error.config as CustomRequestConfig | undefined;
+    const requestUrl = originalRequest?.url || '';
+    const isAuthBypassRoute =
+      requestUrl.includes('/auth/login') ||
+      requestUrl.includes('/auth/refresh') ||
+      requestUrl.includes('/auth/logout');
 
     if (
       error.response?.status === 401 &&
+      originalRequest &&
       !originalRequest._retry &&
-      !originalRequest.url?.includes('/auth/login')
+      !isAuthBypassRoute
     ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -63,19 +74,22 @@ api.interceptors.response.use(
       try {
         const { data } = await api.post('/auth/refresh');
         const newToken = data.dados?.token;
-        if (newToken) {
-          localStorage.setItem('coletores_token', newToken);
-          api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
-          processQueue(null, newToken);
-          originalRequest.headers.Authorization = `Bearer ${newToken}`;
-          return api(originalRequest);
+        if (!newToken) {
+          throw new Error('Token de renovação ausente.');
         }
+        localStorage.setItem('coletores_token', newToken);
+        api.defaults.headers.common.Authorization = `Bearer ${newToken}`;
+        processQueue(null, newToken);
+        originalRequest.headers.Authorization = `Bearer ${newToken}`;
+        return api(originalRequest);
       } catch (refreshErr) {
         processQueue(refreshErr, null);
         localStorage.removeItem('coletores_token');
         localStorage.removeItem('coletores_user');
-        if (window.location.pathname !== '/login') {
-          window.location.href = '/login';
+        delete api.defaults.headers.common.Authorization;
+        const loginPath = getLoginPath();
+        if (!window.location.pathname.endsWith('/login')) {
+          window.location.href = loginPath;
         }
         return Promise.reject(refreshErr);
       } finally {

@@ -13,6 +13,7 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     user: JSON.parse(localStorage.getItem('coletores_user') || 'null') as OperadorInfo | null,
     token: localStorage.getItem('coletores_token') || '',
+    sessionChecked: false,
     loading: false,
     error: '',
   }),
@@ -42,6 +43,7 @@ export const useAuthStore = defineStore('auth', {
         const { data } = await api.post('/auth/login', { usuario, senha });
         this.token = data.dados.token;
         this.user = data.dados.usuario;
+        this.sessionChecked = true;
 
         localStorage.setItem('coletores_token', this.token);
         localStorage.setItem('coletores_user', JSON.stringify(this.user));
@@ -55,14 +57,18 @@ export const useAuthStore = defineStore('auth', {
     },
 
     async checkAuth() {
+      const storedToken = localStorage.getItem('coletores_token') || '';
+      this.token = storedToken;
       if (!this.token) return false;
       try {
         const { data } = await api.get('/auth/me');
+        this.token = localStorage.getItem('coletores_token') || this.token;
         this.user = data.dados;
+        this.sessionChecked = true;
         localStorage.setItem('coletores_user', JSON.stringify(this.user));
         return true;
       } catch {
-        this.logout();
+        await this.logout();
         return false;
       }
     },
@@ -75,6 +81,7 @@ export const useAuthStore = defineStore('auth', {
       } finally {
         this.token = '';
         this.user = null;
+        this.sessionChecked = false;
         localStorage.removeItem('coletores_token');
         localStorage.removeItem('coletores_user');
       }

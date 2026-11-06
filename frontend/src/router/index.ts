@@ -81,7 +81,7 @@ router.beforeEach(async (to, _from, next) => {
     return;
   }
 
-  if (!authStore.user) {
+  if (!authStore.user || !authStore.sessionChecked) {
     const ok = await authStore.checkAuth();
     if (!ok) {
       next('/login');
