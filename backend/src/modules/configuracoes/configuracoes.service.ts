@@ -6,6 +6,7 @@ import { Coletor } from '../../database/entities/Coletor';
 import { Movimentacao } from '../../database/entities/Movimentacao';
 import { HistoricoManutencao } from '../../database/entities/HistoricoManutencao';
 import { BloqueioColaborador } from '../../database/entities/BloqueioColaborador';
+import { AutorizadoLiberacao } from '../../database/entities/AutorizadoLiberacao';
 import { AppError } from '../../shared/errors/AppError';
 
 export interface NovoUsuarioDTO {
@@ -150,6 +151,18 @@ export class ConfiguracoesService {
       where: [{ matricula }, { usuario: usuarioFormatado }],
     });
 
+    // Busca codbarras e rfid corporativos para persistência local de bipe
+    let codbarras: number | null = null;
+    let rfid: number | null = null;
+    try {
+      const qCracha = `SELECT codbarras, rfid FROM colaborador.colaboradores WHERE matricula = $1 LIMIT 1;`;
+      const resCracha = await AppDataSource.query(qCracha, [matricula]);
+      if (resCracha && resCracha.length > 0) {
+        codbarras = resCracha[0].codbarras ? Number(resCracha[0].codbarras) : null;
+        rfid = resCracha[0].rfid ? Number(resCracha[0].rfid) : null;
+      }
+    } catch {}
+
     if (existente) {
       if (existente.ativo) {
         throw new AppError('Este monitor já está cadastrado e ativo no sistema.', 409, 'OPERADOR_DUPLICADO');
@@ -159,7 +172,15 @@ export class ConfiguracoesService {
       existente.papel = papelAtribuido;
       if (dto.nome) existente.nome = dto.nome;
       if (dto.cargo) existente.cargo = dto.cargo;
-      return operadorRepo.save(existente);
+      if (codbarras) existente.codbarras = codbarras;
+      if (rfid) existente.rfid = rfid;
+      const salvo = await operadorRepo.save(existente);
+
+      // Elimina redundância da lista de autorizados caso conste nela
+      const autorizadoRepo = AppDataSource.getRepository(AutorizadoLiberacao);
+      await autorizadoRepo.delete({ matricula });
+
+      return salvo;
     }
 
     const novoOperador = operadorRepo.create({
@@ -168,10 +189,18 @@ export class ConfiguracoesService {
       nome: dto.nome || usuarioFormatado,
       cargo: dto.cargo || 'Monitor',
       papel: papelAtribuido,
+      codbarras,
+      rfid,
       ativo: true,
     });
 
-    return operadorRepo.save(novoOperador);
+    const criado = await operadorRepo.save(novoOperador);
+
+    // Elimina redundância da lista de autorizados caso conste nela
+    const autorizadoRepo = AppDataSource.getRepository(AutorizadoLiberacao);
+    await autorizadoRepo.delete({ matricula });
+
+    return criado;
   }
 
   public static async atualizarUsuario(

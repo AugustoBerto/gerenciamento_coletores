@@ -23,6 +23,26 @@ export class Operador {
   })
   matricula!: number;
 
+  @Column({
+    type: 'bigint',
+    nullable: true,
+    transformer: {
+      to: (value: number | null) => value,
+      from: (value: string | number | null) => (value !== null && value !== undefined ? Number(value) : null),
+    },
+  })
+  codbarras!: number | null;
+
+  @Column({
+    type: 'bigint',
+    nullable: true,
+    transformer: {
+      to: (value: number | null) => value,
+      from: (value: string | number | null) => (value !== null && value !== undefined ? Number(value) : null),
+    },
+  })
+  rfid!: number | null;
+
   @Column({ type: 'varchar', length: 60, unique: true })
   usuario!: string;
 

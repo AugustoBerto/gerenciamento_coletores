@@ -9,6 +9,7 @@ import movimentacoesRoutes from './modules/movimentacoes/movimentacoes.routes';
 import coletoresRoutes from './modules/coletores/coletores.routes';
 import relatoriosRoutes from './modules/relatorios/relatorios.routes';
 import configuracoesRoutes from './modules/configuracoes/configuracoes.routes';
+import autorizadosRoutes from './modules/autorizados/autorizados.routes';
 import { AppDataSource } from './config/database';
 
 export const createApp = (): Express => {
@@ -56,6 +57,7 @@ export const createApp = (): Express => {
   app.use('/coletores', coletoresRoutes);
   app.use('/relatorios', relatoriosRoutes);
   app.use('/configuracoes', configuracoesRoutes);
+  app.use('/autorizados', autorizadosRoutes);
 
   // Fallback raiz
   app.get('/', (_req, res) => {

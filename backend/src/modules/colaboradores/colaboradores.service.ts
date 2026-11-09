@@ -5,6 +5,7 @@ import { BloqueioColaborador } from '../../database/entities/BloqueioColaborador
 import { Movimentacao } from '../../database/entities/Movimentacao';
 import { Operador } from '../../database/entities/Operador';
 import { ColetorTitular } from '../../database/entities/ColetorTitular';
+import { AutorizadoLiberacao } from '../../database/entities/AutorizadoLiberacao';
 
 export interface ColetorPreferencialInfo {
   coletorId: string;
@@ -253,6 +254,8 @@ export class ColaboradoresService {
   public static async consultarColaboradorParaTitular(identificadorRaw: string): Promise<{
     matricula: number;
     nome: string;
+    codbarras?: number | null;
+    rfid?: number | null;
     setor: string;
     funcao: string;
   }> {
@@ -291,21 +294,21 @@ export class ColaboradoresService {
 
     const query = `
       WITH candidato AS (
-        SELECT matricula, nome
+        SELECT matricula, nome, codbarras, rfid
         FROM colaborador.colaboradores
         WHERE ($1::bigint IS NOT NULL AND matricula = $1::bigint)
            OR ($2::bigint IS NOT NULL AND matricula = $2::bigint)
 
         UNION ALL
 
-        SELECT matricula, nome
+        SELECT matricula, nome, codbarras, rfid
         FROM colaborador.colaboradores
         WHERE ($1::bigint IS NOT NULL AND codbarras = $1::bigint)
            OR ($2::bigint IS NOT NULL AND codbarras = $2::bigint)
 
         UNION ALL
 
-        SELECT matricula, nome
+        SELECT matricula, nome, codbarras, rfid
         FROM colaborador.colaboradores
         WHERE ($1::bigint IS NOT NULL AND rfid = $1::bigint)
            OR ($2::bigint IS NOT NULL AND rfid = $2::bigint)
@@ -316,6 +319,8 @@ export class ColaboradoresService {
       SELECT 
         c.matricula, 
         c.nome, 
+        c.codbarras, 
+        c.rfid, 
         COALESCE(l.nome_setor, 'Setor Operacional') AS setor, 
         COALESCE(l.funcao, 'Operador') AS funcao
       FROM candidato c
@@ -332,6 +337,8 @@ export class ColaboradoresService {
     return {
       matricula: Number(colab.matricula),
       nome: String(colab.nome || 'Colaborador'),
+      codbarras: colab.codbarras ? Number(colab.codbarras) : null,
+      rfid: colab.rfid ? Number(colab.rfid) : null,
       setor: String(colab.setor || 'Setor Operacional'),
       funcao: String(colab.funcao || 'Operador'),
     };
@@ -352,28 +359,149 @@ export class ColaboradoresService {
     cargo: string;
     papel: string;
   }> {
-    const colab = await this.buscarColaboradorCorporativo(codigoRaw);
-    const operadorRepo = AppDataSource.getRepository(Operador);
+    const raw = String(codigoRaw || '')
+      .replace(/[\r\n\t]/g, '')
+      .trim();
 
+    if (!raw) {
+      throw new AppError('Informe o crachá ou matrícula do monitor.', 400, 'CRACHA_OBRIGATORIO');
+    }
+
+    let numericVal: string | null = null;
+    let hexDecVal: string | null = null;
+
+    if (/^\d+$/.test(raw)) {
+      try {
+        numericVal = BigInt(raw).toString();
+      } catch {}
+    } else if (/^[0-9a-fA-F]{4,16}$/.test(raw)) {
+      try {
+        hexDecVal = BigInt('0x' + raw).toString();
+      } catch {}
+    }
+
+    const stripped = raw.replace(/^0+/, '');
+    let strippedVal: string | null = null;
+    if (stripped && stripped !== raw && /^\d+$/.test(stripped)) {
+      try {
+        strippedVal = BigInt(stripped).toString();
+      } catch {}
+    }
+
+    if (!numericVal && !hexDecVal && !strippedVal) {
+      throw new AppError('Crachá inválido para leitura.', 400, 'CRACHA_INVALIDO');
+    }
+
+    // 1. Busca DIRETA E ULTRA-RÁPIDA no schema local gestao_coletores via índices B-Tree
+    // (Zero joins com tabelas externas corporativas, zero consumo de memória RAM extra)
+    const queryLocal = `
+      WITH monitor_encontrado AS (
+        SELECT 
+          id, matricula, nome, cargo, papel, ativo, 'OPERADOR' AS origem
+        FROM gestao_coletores.operadores
+        WHERE ($1::bigint IS NOT NULL AND codbarras = $1::bigint)
+           OR ($2::bigint IS NOT NULL AND codbarras = $2::bigint)
+           OR ($1::bigint IS NOT NULL AND rfid = $1::bigint)
+           OR ($2::bigint IS NOT NULL AND rfid = $2::bigint)
+           OR ($3::bigint IS NOT NULL AND rfid = $3::bigint)
+           OR ($1::bigint IS NOT NULL AND matricula = $1::bigint)
+           OR ($2::bigint IS NOT NULL AND matricula = $2::bigint)
+
+        UNION ALL
+
+        SELECT 
+          NULL AS id, matricula, nome, funcao AS cargo, 'OPERADOR' AS papel, true AS ativo, 'AUTORIZADO' AS origem
+        FROM gestao_coletores.autorizados_liberacao
+        WHERE ($1::bigint IS NOT NULL AND codbarras = $1::bigint)
+           OR ($2::bigint IS NOT NULL AND codbarras = $2::bigint)
+           OR ($1::bigint IS NOT NULL AND rfid = $1::bigint)
+           OR ($2::bigint IS NOT NULL AND rfid = $2::bigint)
+           OR ($3::bigint IS NOT NULL AND rfid = $3::bigint)
+           OR ($1::bigint IS NOT NULL AND matricula = $1::bigint)
+           OR ($2::bigint IS NOT NULL AND matricula = $2::bigint)
+
+        LIMIT 1
+      )
+      SELECT * FROM monitor_encontrado;
+    `;
+
+    const resLocal = await AppDataSource.query(queryLocal, [numericVal, strippedVal, hexDecVal]);
+
+    if (resLocal && resLocal.length > 0) {
+      const m = resLocal[0];
+      if (m.origem === 'OPERADOR' && !m.ativo) {
+        throw new AppError(
+          `O monitor ${m.nome} está inativo no sistema e não pode liberar ou receber equipamentos.`,
+          403,
+          'OPERADOR_INATIVO'
+        );
+      }
+
+      return {
+        id: m.id || null,
+        matricula: Number(m.matricula),
+        nome: String(m.nome),
+        cargo: String(m.cargo || 'Monitor'),
+        papel: String(m.papel || 'OPERADOR'),
+      };
+    }
+
+    // 2. Fallback preventivo com auto-healing (caso raro de registro legado ainda sem codbarras/rfid salvo localmente)
+    const colab = await this.buscarColaboradorCorporativo(codigoRaw);
+
+    const operadorRepo = AppDataSource.getRepository(Operador);
     const operador = await operadorRepo.findOne({
       where: { matricula: colab.matricula },
     });
 
-    if (operador && !operador.ativo) {
-      throw new AppError(
-        `O monitor ${operador.nome} está inativo no sistema e não pode liberar ou receber equipamentos.`,
-        403,
-        'OPERADOR_INATIVO'
-      );
+    if (operador) {
+      // Auto-healing: salva codbarras e rfid localmente para os próximos bipes serem resolvidos em 1ms
+      if (!operador.codbarras && colab.codbarras) operador.codbarras = Number(colab.codbarras);
+      if (!operador.rfid && colab.rfid) operador.rfid = Number(colab.rfid);
+      await operadorRepo.save(operador);
+
+      if (!operador.ativo) {
+        throw new AppError(
+          `O monitor ${operador.nome} está inativo no sistema e não pode liberar ou receber equipamentos.`,
+          403,
+          'OPERADOR_INATIVO'
+        );
+      }
+
+      return {
+        id: operador.id,
+        matricula: colab.matricula,
+        nome: operador.nome,
+        cargo: (operador.cargo || colab.funcao) || 'Monitor',
+        papel: operador.papel,
+      };
     }
 
-    return {
-      id: operador ? operador.id : null,
-      matricula: colab.matricula,
-      nome: operador ? operador.nome : colab.nome,
-      cargo: (operador ? operador.cargo : colab.funcao) || 'Monitor',
-      papel: operador ? operador.papel : 'OPERADOR',
-    };
+    const autorizadoRepo = AppDataSource.getRepository(AutorizadoLiberacao);
+    const autorizado = await autorizadoRepo.findOne({
+      where: { matricula: colab.matricula },
+    });
+
+    if (autorizado) {
+      // Auto-healing: salva codbarras e rfid localmente
+      if (!autorizado.codbarras && colab.codbarras) autorizado.codbarras = Number(colab.codbarras);
+      if (!autorizado.rfid && colab.rfid) autorizado.rfid = Number(colab.rfid);
+      await autorizadoRepo.save(autorizado);
+
+      return {
+        id: null,
+        matricula: colab.matricula,
+        nome: autorizado.nome || colab.nome,
+        cargo: (autorizado.funcao || colab.funcao) || 'Monitor',
+        papel: 'OPERADOR',
+      };
+    }
+
+    throw new AppError(
+      `Colaborador ${colab.nome} (Matrícula: ${colab.matricula}) não possui autorização para liberar coletores. Solicite inclusão na lista de autorizados ao Administrador ou TI.`,
+      403,
+      'MONITOR_NAO_AUTORIZADO'
+    );
   }
 
   public static async listarBloqueios(): Promise<BloqueioColaborador[]> {
