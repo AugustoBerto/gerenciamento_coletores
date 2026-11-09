@@ -2,53 +2,47 @@ import { AppDataSource } from '../../config/database';
 import { Coletor } from '../../database/entities/Coletor';
 import { Movimentacao } from '../../database/entities/Movimentacao';
 import { Configuracao } from '../../database/entities/Configuracao';
+import { MovimentacoesService } from '../movimentacoes/movimentacoes.service';
 
 export class RelatoriosService {
   public static async obterMetricasDashboard(): Promise<any> {
-    const coletorRepo = AppDataSource.getRepository(Coletor);
-    const movRepo = AppDataSource.getRepository(Movimentacao);
-    const configRepo = AppDataSource.getRepository(Configuracao);
+    const { ativo: slaAtivo, limiteMinutos } = await MovimentacoesService.obterLimitesSLA();
 
-    const [total, disponiveis, emUso, manutencao, inativos] = await Promise.all([
-      coletorRepo.count(),
-      coletorRepo.count({ where: { status: 'DISPONIVEL' } }),
-      coletorRepo.count({ where: { status: 'EM_USO' } }),
-      coletorRepo.count({ where: { status: 'MANUTENCAO' } }),
-      coletorRepo.count({ where: { status: 'INATIVO' } }),
+    // 1. Agregação condicional atômica no PostgreSQL (1 única query para todos os status)
+    const queryStatsColetores = `
+      SELECT 
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE status = 'DISPONIVEL')::int AS disponiveis,
+        COUNT(*) FILTER (WHERE status = 'EM_USO')::int AS em_uso,
+        COUNT(*) FILTER (WHERE status = 'MANUTENCAO')::int AS manutencao,
+        COUNT(*) FILTER (WHERE status = 'INATIVO')::int AS inativos
+      FROM gestao_coletores.coletores;
+    `;
+
+    // 2. Contagem de atrasados de SLA direto no PostgreSQL (usa índice parcial de custódia aberta)
+    const queryAtrasados = slaAtivo
+      ? `
+        SELECT COUNT(*)::int AS atrasados
+        FROM gestao_coletores.movimentacoes
+        WHERE data_retorno IS NULL 
+          AND data_saida < NOW() - ($1 || ' minutes')::interval;
+      `
+      : null;
+
+    const [statsResult, atrasadosResult] = await Promise.all([
+      AppDataSource.query(queryStatsColetores),
+      queryAtrasados ? AppDataSource.query(queryAtrasados, [limiteMinutos]) : Promise.resolve([{ atrasados: 0 }]),
     ]);
 
-    const [cfgLimite, cfgSlaAtivo] = await Promise.all([
-      configRepo.findOne({ where: { chave: 'LIMITE_USO_MINUTOS' } }),
-      configRepo.findOne({ where: { chave: 'SLA_ATIVO' } }),
-    ]);
-
-    const limiteMinutos = cfgLimite ? Number(cfgLimite.valor) : 480;
-    const slaAtivo = cfgSlaAtivo ? cfgSlaAtivo.valor.toLowerCase() === 'true' : false;
-
-    const abertas = await movRepo.find({
-      where: { dataRetorno: undefined as any },
-      select: ['id', 'dataSaida'],
-    });
-
-    const now = Date.now();
-    let atrasados = 0;
-    if (slaAtivo) {
-      for (const mov of abertas) {
-        if (!mov.dataRetorno) {
-          const diffMinutos = Math.floor((now - new Date(mov.dataSaida).getTime()) / 60000);
-          if (diffMinutos > limiteMinutos) {
-            atrasados += 1;
-          }
-        }
-      }
-    }
+    const stats = statsResult[0] || { total: 0, disponiveis: 0, em_uso: 0, manutencao: 0, inativos: 0 };
+    const atrasados = Number(atrasadosResult[0]?.atrasados || 0);
 
     return {
-      total,
-      disponiveis,
-      emUso,
-      manutencao,
-      inativos,
+      total: Number(stats.total || 0),
+      disponiveis: Number(stats.disponiveis || 0),
+      emUso: Number(stats.em_uso || 0),
+      manutencao: Number(stats.manutencao || 0),
+      inativos: Number(stats.inativos || 0),
       atrasados,
       slaAtivo,
       limiteMinutosSLA: limiteMinutos,
