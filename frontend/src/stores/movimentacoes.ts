@@ -87,8 +87,6 @@ export const useMovimentacoesStore = defineStore('movimentacoes', {
         patrimonio,
         crachaOperador,
       });
-      await this.carregarAtivas();
-      await this.carregarMetricas();
       return data;
     },
 
@@ -113,8 +111,6 @@ export const useMovimentacoesStore = defineStore('movimentacoes', {
       }
     ) {
       const { data } = await api.post(`/movimentacoes/${id}/devolucao`, dados);
-      await this.carregarAtivas();
-      await this.carregarMetricas();
       return data;
     },
   },

@@ -11,7 +11,14 @@
 
       <div class="flex items-center gap-2 w-full sm:w-auto">
         <button
-          v-if="abaAtiva === 'usuarios' && authStore.canManageUsers"
+          v-if="abaAtiva === 'autorizados' && authStore.canManageUsers"
+          @click="abrirModalNovoAutorizado"
+          class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-[#002B49] hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition"
+        >
+          + Autorizar Colaborador
+        </button>
+        <button
+          v-else-if="abaAtiva === 'usuarios' && authStore.canManageUsers"
           @click="abrirModalNovoUsuario"
           class="w-full sm:w-auto inline-flex items-center justify-center px-4 py-2.5 bg-[#002B49] hover:bg-slate-800 text-white text-xs font-bold rounded-xl shadow-sm transition"
         >
@@ -31,11 +38,19 @@
     <div class="flex space-x-2 border-b border-gray-200">
       <button
         v-if="authStore.canManageUsers"
+        @click="trocarParaAutorizados"
+        class="pb-3 px-4 text-xs font-bold transition-colors border-b-2"
+        :class="abaAtiva === 'autorizados' ? 'border-[#002B49] text-[#002B49]' : 'border-transparent text-gray-500 hover:text-gray-800'"
+      >
+        Autorizados a Liberar
+      </button>
+      <button
+        v-if="authStore.canManageUsers"
         @click="abaAtiva = 'usuarios'"
         class="pb-3 px-4 text-xs font-bold transition-colors border-b-2"
         :class="abaAtiva === 'usuarios' ? 'border-[#002B49] text-[#002B49]' : 'border-transparent text-gray-500 hover:text-gray-800'"
       >
-        Monitores Autorizados (Whitelist)
+        Usuários
       </button>
       <button
         v-if="authStore.canManageSetores"
@@ -68,6 +83,107 @@
       <button @click="mensagemAlerta = ''" class="text-xs font-black px-2 py-1 hover:underline">
         Dispensar
       </button>
+    </div>
+
+    <!-- ABA 0: AUTORIZADOS A LIBERAR -->
+    <div v-if="abaAtiva === 'autorizados' && authStore.canManageUsers" class="space-y-4">
+      <!-- Barra de Busca -->
+      <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200">
+        <div class="relative">
+          <input
+            v-model="filtroAutorizadosBusca"
+            type="text"
+            placeholder="Buscar por nome, matrícula, função ou setor..."
+            class="w-full pl-9 pr-3 py-2 text-xs border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-[#002B49]"
+          />
+          <div class="absolute left-3 top-2.5 text-gray-400">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Loading State -->
+      <div v-if="loadingAutorizados" class="bg-white p-12 rounded-2xl shadow-sm border border-gray-200 text-center text-gray-400 text-xs">
+        Carregando lista de pessoas autorizadas a liberar coletores...
+      </div>
+
+      <!-- Tabela Desktop -->
+      <div v-else-if="autorizadosFiltrados.length > 0" class="hidden md:block bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-gray-600">
+            <thead class="bg-gray-100 text-gray-700 uppercase font-black text-[10px] tracking-wider">
+              <tr>
+                <th class="py-3 px-4">Colaborador / Nome</th>
+                <th class="py-3 px-4">Matrícula</th>
+                <th class="py-3 px-4">Função / Cargo</th>
+                <th class="py-3 px-4">Setor</th>
+                <th class="py-3 px-4">Autorizado Em</th>
+                <th class="py-3 px-4">Autorizado Por</th>
+                <th class="py-3 px-4 text-right">Ações</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100">
+              <tr v-for="a in autorizadosFiltrados" :key="a.id" class="hover:bg-gray-50/80 transition">
+                <td class="py-3.5 px-4 font-bold text-gray-900">
+                  {{ a.nome }}
+                </td>
+                <td class="py-3.5 px-4 font-mono text-gray-600">{{ a.matricula }}</td>
+                <td class="py-3.5 px-4 text-gray-600">{{ a.funcao || '-' }}</td>
+                <td class="py-3.5 px-4 text-gray-600">{{ a.setor || '-' }}</td>
+                <td class="py-3.5 px-4 text-gray-500 text-[11px]">
+                  {{ new Date(a.criadoEm).toLocaleDateString('pt-BR') }} {{ new Date(a.criadoEm).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' }) }}
+                </td>
+                <td class="py-3.5 px-4 text-gray-600">
+                  {{ a.criadoPor?.nome || '-' }}
+                </td>
+                <td class="py-3.5 px-4 text-right">
+                  <button
+                    @click="removerAutorizado(a)"
+                    class="px-2.5 py-1 text-xs font-bold text-red-600 hover:text-red-800 hover:bg-red-50 rounded transition"
+                  >
+                    Remover
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Cards Mobile -->
+      <div v-else-if="autorizadosFiltrados.length > 0" class="md:hidden space-y-3">
+        <div
+          v-for="a in autorizadosFiltrados"
+          :key="a.id"
+          class="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 space-y-2"
+        >
+          <div class="flex justify-between items-start">
+            <div>
+              <div class="font-bold text-gray-900 text-sm">{{ a.nome }}</div>
+              <div class="text-xs text-gray-500 font-mono">Mat: {{ a.matricula }}</div>
+            </div>
+            <button
+              @click="removerAutorizado(a)"
+              class="px-2.5 py-1 text-xs font-bold text-red-600 hover:text-red-800 bg-red-50 border border-red-200 rounded-lg"
+            >
+              Remover
+            </button>
+          </div>
+          <div class="text-xs text-gray-600 flex justify-between">
+            <span>{{ a.funcao || 'Operador' }}</span>
+            <span class="text-gray-400">{{ a.setor || '-' }}</span>
+          </div>
+          <div class="text-[11px] text-gray-400 pt-1 border-t border-gray-100 flex justify-between">
+            <span>Autorizado em {{ new Date(a.criadoEm).toLocaleDateString('pt-BR') }}</span>
+            <span v-if="a.criadoPor">por {{ a.criadoPor.nome }}</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div v-else class="bg-white p-12 rounded-2xl shadow-sm border border-gray-200 text-center text-gray-400 text-xs">
+        Nenhum colaborador encontrado na lista de autorizados a liberar.
+      </div>
     </div>
 
     <!-- ABA 1: GESTÃO DE USUÁRIOS (WHITELIST) -->
@@ -437,6 +553,111 @@
       </form>
     </div>
 
+    <!-- MODAL: AUTORIZAR COLABORADOR PARA LIBERAÇÃO -->
+    <Teleport to="body">
+      <div
+        v-if="modalNovoAutorizadoAberto"
+        class="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4 backdrop-blur-sm overflow-y-auto"
+      >
+        <div class="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto my-auto">
+          <div class="flex justify-between items-start border-b pb-3">
+            <div>
+              <h3 class="text-base font-extrabold text-gray-900">Autorizar Colaborador</h3>
+              <p class="text-xs text-gray-500">Permite ao colaborador bipar o crachá e liberar/receber coletores sem necessidade de login corporativo.</p>
+            </div>
+            <button @click="modalNovoAutorizadoAberto = false" class="text-gray-400 hover:text-gray-700 text-lg leading-none">
+              &times;
+            </button>
+          </div>
+
+          <div v-if="erroModalAutorizado" class="p-3 rounded-lg bg-red-50 border border-red-300 text-red-700 text-xs font-bold">
+            {{ erroModalAutorizado }}
+          </div>
+
+          <form @submit.prevent="confirmarAutorizacao" class="space-y-4">
+            <!-- Campo de Busca Prévia -->
+            <div>
+              <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1">
+                Crachá, RFID ou Matrícula*
+              </label>
+              <div class="flex gap-2">
+                <input
+                  v-model="inputBuscaAutorizado"
+                  type="text"
+                  required
+                  placeholder="Bipe o crachá corporativo ou informe a matrícula..."
+                  class="flex-1 p-2.5 text-xs rounded-xl border border-gray-300 font-mono outline-none focus:ring-2 focus:ring-[#002B49]"
+                  @keydown.enter.prevent="consultarColaboradorParaAutorizar"
+                />
+                <button
+                  type="button"
+                  :disabled="loadingConsultaAutorizado || !inputBuscaAutorizado.trim()"
+                  @click="consultarColaboradorParaAutorizar"
+                  class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-800 text-xs font-bold rounded-xl disabled:opacity-50 transition"
+                >
+                  {{ loadingConsultaAutorizado ? 'Buscando...' : 'Consultar' }}
+                </button>
+              </div>
+              <p class="text-[11px] text-gray-400 mt-1">
+                Bipe o leitor de código de barras, aproxime o crachá no RFID ou digite a matrícula.
+              </p>
+            </div>
+
+            <!-- Preview do Colaborador Localizado -->
+            <div
+              v-if="colaboradorAutorizadoLocalizado"
+              class="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2"
+            >
+              <div class="text-xs font-black text-gray-900">{{ colaboradorAutorizadoLocalizado.nome }}</div>
+              <div class="text-[11px] text-gray-600 grid grid-cols-2 gap-2">
+                <div><strong>Matrícula:</strong> {{ colaboradorAutorizadoLocalizado.matricula }}</div>
+                <div><strong>Função:</strong> {{ colaboradorAutorizadoLocalizado.funcao }}</div>
+                <div class="col-span-2"><strong>Setor:</strong> {{ colaboradorAutorizadoLocalizado.setor }}</div>
+              </div>
+
+              <!-- Aviso: Já é Usuário do Sistema -->
+              <div
+                v-if="colaboradorAutorizadoLocalizado.jaEhUsuario"
+                class="p-2.5 rounded-lg bg-amber-50 border border-amber-200 text-amber-800 text-[11px]"
+              >
+                Este colaborador já possui perfil de usuário ativo no sistema (<strong>@{{ colaboradorAutorizadoLocalizado.usuario }}</strong>) e já está autorizado automaticamente a liberar coletores.
+              </div>
+
+              <!-- Aviso: Já Consta na Lista -->
+              <div
+                v-else-if="colaboradorAutorizadoLocalizado.jaAutorizado"
+                class="p-2.5 rounded-lg bg-blue-50 border border-blue-200 text-blue-800 text-[11px]"
+              >
+                Este colaborador já consta na lista de autorizados a liberar coletores.
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t">
+              <button
+                type="button"
+                @click="modalNovoAutorizadoAberto = false"
+                class="px-4 py-2 text-xs font-bold text-gray-600 hover:text-gray-900"
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                :disabled="
+                  loadingSalvarAutorizado ||
+                  !colaboradorAutorizadoLocalizado ||
+                  colaboradorAutorizadoLocalizado.jaEhUsuario ||
+                  colaboradorAutorizadoLocalizado.jaAutorizado
+                "
+                class="px-4 py-2 bg-[#002B49] hover:bg-slate-800 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition"
+              >
+                {{ loadingSalvarAutorizado ? 'Autorizando...' : 'Confirmar Autorização' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </Teleport>
+
     <!-- MODAL: CADASTRAR NOVO MONITOR -->
     <Teleport to="body">
       <div
@@ -618,8 +839,8 @@ import { useAuthStore } from '../stores/auth';
 
 const authStore = useAuthStore();
 
-const abaAtiva = ref<'usuarios' | 'setores' | 'sla'>(
-  authStore.canManageUsers ? 'usuarios' : 'setores'
+const abaAtiva = ref<'autorizados' | 'usuarios' | 'setores' | 'sla'>(
+  authStore.canManageUsers ? 'autorizados' : 'setores'
 );
 const usuarios = ref<any[]>([]);
 const loadingUsuarios = ref(false);
@@ -667,6 +888,107 @@ const novoUsuarioPapel = ref<'ADMIN' | 'TI' | 'OPERADOR'>('OPERADOR');
 const loadingConsultaCorp = ref(false);
 const loadingSalvarUsuario = ref(false);
 const erroModal = ref('');
+
+// Gestão de Autorizados a Liberar
+const autorizados = ref<any[]>([]);
+const loadingAutorizados = ref(false);
+const filtroAutorizadosBusca = ref('');
+const modalNovoAutorizadoAberto = ref(false);
+const inputBuscaAutorizado = ref('');
+const loadingConsultaAutorizado = ref(false);
+const loadingSalvarAutorizado = ref(false);
+const colaboradorAutorizadoLocalizado = ref<any>(null);
+const erroModalAutorizado = ref('');
+
+const autorizadosFiltrados = computed(() => {
+  const t = filtroAutorizadosBusca.value.trim().toLowerCase();
+  if (!t) return autorizados.value;
+  return autorizados.value.filter(
+    (a) =>
+      a.nome.toLowerCase().includes(t) ||
+      String(a.matricula).includes(t) ||
+      (a.funcao && a.funcao.toLowerCase().includes(t)) ||
+      (a.setor && a.setor.toLowerCase().includes(t))
+  );
+});
+
+const carregarAutorizados = async () => {
+  loadingAutorizados.value = true;
+  try {
+    const { data } = await api.get('/autorizados');
+    autorizados.value = data.dados || [];
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao carregar lista de autorizados.', 'erro');
+  } finally {
+    loadingAutorizados.value = false;
+  }
+};
+
+const trocarParaAutorizados = () => {
+  abaAtiva.value = 'autorizados';
+  if (autorizados.value.length === 0) {
+    carregarAutorizados();
+  }
+};
+
+const abrirModalNovoAutorizado = () => {
+  inputBuscaAutorizado.value = '';
+  colaboradorAutorizadoLocalizado.value = null;
+  erroModalAutorizado.value = '';
+  modalNovoAutorizadoAberto.value = true;
+};
+
+const consultarColaboradorParaAutorizar = async () => {
+  const termo = inputBuscaAutorizado.value.trim();
+  if (!termo) return;
+
+  erroModalAutorizado.value = '';
+  loadingConsultaAutorizado.value = true;
+  colaboradorAutorizadoLocalizado.value = null;
+
+  try {
+    const { data } = await api.get(`/autorizados/consultar?identificador=${encodeURIComponent(termo)}`);
+    colaboradorAutorizadoLocalizado.value = data.dados;
+  } catch (err: any) {
+    erroModalAutorizado.value = err.response?.data?.mensagem || 'Colaborador não localizado na base da fábrica.';
+  } finally {
+    loadingConsultaAutorizado.value = false;
+  }
+};
+
+const confirmarAutorizacao = async () => {
+  if (!colaboradorAutorizadoLocalizado.value) return;
+
+  erroModalAutorizado.value = '';
+  loadingSalvarAutorizado.value = true;
+
+  try {
+    const { data } = await api.post('/autorizados', {
+      identificador: String(colaboradorAutorizadoLocalizado.value.matricula),
+    });
+    modalNovoAutorizadoAberto.value = false;
+    exibirAlerta(data.mensagem || `Colaborador ${colaboradorAutorizadoLocalizado.value.nome} autorizado com sucesso!`, 'sucesso');
+    await carregarAutorizados();
+  } catch (err: any) {
+    erroModalAutorizado.value = err.response?.data?.mensagem || 'Erro ao autorizar colaborador.';
+  } finally {
+    loadingSalvarAutorizado.value = false;
+  }
+};
+
+const removerAutorizado = async (item: any) => {
+  if (!confirm(`Deseja realmente revogar a autorização de liberação de ${item.nome} (Matrícula: ${item.matricula})?`)) {
+    return;
+  }
+
+  try {
+    const { data } = await api.delete(`/autorizados/${item.id}`);
+    exibirAlerta(data.mensagem || `Autorização de ${item.nome} removida com sucesso.`, 'sucesso');
+    await carregarAutorizados();
+  } catch (err: any) {
+    exibirAlerta(err.response?.data?.mensagem || 'Erro ao remover autorização.', 'erro');
+  }
+};
 
 // Configurações de SLA
 const formSla = ref({
@@ -974,6 +1296,7 @@ const excluirUsuario = async (u: any) => {
 
 onMounted(() => {
   if (authStore.canManageUsers) {
+    carregarAutorizados();
     carregarUsuarios();
   }
   if (authStore.canManageSetores) {
