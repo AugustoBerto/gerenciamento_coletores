@@ -10,7 +10,9 @@
     "typeorm": "typeorm-ts-node-commonjs",
     "migration:run": "typeorm-ts-node-commonjs migration:run -d src/config/database.ts",
     "migration:run:prod": "node dist/database/runMigrations.js",
-    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/database.ts"
+    "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/config/database.ts",
+    "provisionar:autorizados": "ts-node-dev --transpile-only --exit-child src/database/provisionarAutorizados.ts",
+    "provisionar:autorizados:prod": "node dist/database/provisionarAutorizados.js"
   },
   "dependencies": {
     "axios": "^1.7.2",
